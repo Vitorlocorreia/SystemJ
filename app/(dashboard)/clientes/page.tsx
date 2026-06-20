@@ -42,14 +42,14 @@ export default async function ClientesPage({
   const { data: clientes, error } = await query
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-display-md text-text-primary">Clientes</h1>
+          <h1 className="font-display text-2xl md:text-display-md text-text-primary">Clientes</h1>
           <p className="text-text-secondary text-sm mt-1">{clientes?.length ?? 0} registros</p>
         </div>
-        <Link href="/clientes/novo" className="btn-primary flex items-center gap-2">
+        <Link href="/clientes/novo" className="btn-primary flex items-center gap-2 self-start">
           <Plus size={16} />
           Novo cliente
         </Link>
@@ -84,8 +84,8 @@ export default async function ClientesPage({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card p-0 overflow-hidden">
+      {/* Table — desktop (md+) */}
+      <div className="hidden md:block card p-0 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
@@ -132,6 +132,42 @@ export default async function ClientesPage({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Card list — mobile */}
+      <div className="md:hidden space-y-2">
+        {clientes?.length === 0 && (
+          <p className="text-center text-text-secondary text-sm py-8">Nenhum cliente encontrado.</p>
+        )}
+        {clientes?.map((cliente) => (
+          <Link
+            key={cliente.id}
+            href={`/clientes/${cliente.id}`}
+            className="block card-elevated hover:border-gold/30 transition-all duration-150 group"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-text-primary group-hover:text-gold transition-colors truncate">
+                  {cliente.nome}
+                </p>
+                {cliente.segmento && (
+                  <p className="text-text-secondary text-xs mt-0.5 truncate">{cliente.segmento}</p>
+                )}
+              </div>
+              <span className={statusClass[cliente.status as StatusCliente]}>
+                {statusLabel[cliente.status as StatusCliente]}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mt-2.5">
+              <span className="text-xs text-text-secondary">{cliente.email ?? cliente.telefone ?? '—'}</span>
+              <span className="font-display text-xs tabular-nums text-text-primary">
+                {cliente.valor_contrato
+                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.valor_contrato)
+                  : ''}
+              </span>
+            </div>
+          </Link>
+        ))}
       </div>
     </div>
   )

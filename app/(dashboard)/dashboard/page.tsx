@@ -68,7 +68,7 @@ export default async function DashboardPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="font-display text-display-md text-text-primary">Dashboard</h1>
+        <h1 className="font-display text-2xl md:text-display-md text-text-primary">Dashboard</h1>
         <p className="text-text-secondary text-sm mt-1">
           Visão geral da operação — {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
         </p>

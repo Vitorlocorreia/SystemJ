@@ -25,6 +25,7 @@
 
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-in: slide-in 0.2s ease-out;
+  --animate-scale-in: scale-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(4px); }
@@ -33,6 +34,10 @@
   @keyframes slide-in {
     from { opacity: 0; transform: translateX(-8px); }
     to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.94); }
+    to { opacity: 1; transform: scale(1); }
   }
 }
 
@@ -167,5 +172,15 @@
   .nav-item-active {
     @apply flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium
            transition-all duration-150 text-text-primary bg-surface-elevated border-l-2 border-gold;
+  }
+
+  /* ── Mobile helpers ── */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Animate scale-in helper */
+  .animate-scale-in {
+    animation: var(--animate-scale-in);
   }
 }

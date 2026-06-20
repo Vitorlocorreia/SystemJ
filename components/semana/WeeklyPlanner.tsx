@@ -431,23 +431,24 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header and Exporter Action */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="font-display text-display-md text-text-primary">Agenda Semanal</h1>
-          <p className="text-sm text-text-secondary mt-1">
+          <h1 className="font-display text-2xl md:text-display-md text-text-primary">Agenda Semanal</h1>
+          <p className="text-sm text-text-secondary mt-1 hidden sm:block">
             Planeje o cronograma semanal de captações de filmmakers e entregas da agência.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isGestor && (
             <button
               onClick={() => setIsExportOpen(true)}
               className="btn-secondary flex items-center gap-2 text-sm justify-center py-2"
             >
               <Share2 size={16} />
-              Exportar Semana (WhatsApp)
+              <span className="hidden sm:inline">Exportar Semana (WhatsApp)</span>
+              <span className="sm:hidden">WhatsApp</span>
             </button>
           )}
           {isGestor && (
@@ -456,7 +457,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               className="btn-primary flex items-center gap-2 text-sm justify-center py-2"
             >
               <Plus size={16} />
-              Nova Demanda
+              <span className="hidden sm:inline">Nova Demanda</span>
+              <span className="sm:hidden">Nova</span>
             </button>
           )}
         </div>
@@ -596,7 +598,9 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
       {/* Drag & Drop Board */}
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex flex-col lg:flex-row gap-4 overflow-x-auto pb-4 items-stretch">
+        <div className="flex flex-col gap-4 overflow-x-auto pb-4">
+          {/* On mobile: show backlog collapsed; on desktop: side by side */}
+          <div className="flex flex-col lg:flex-row gap-4 items-stretch">
 
           {/* Backlog sidebar */}
           <div className="w-full lg:w-64 shrink-0 flex flex-col gap-2 bg-surface border border-border rounded-xl overflow-hidden">
@@ -653,8 +657,9 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             </Droppable>
           </div>
 
-          {/* Calendar Days Grid */}
-          <div className="flex-1 grid grid-cols-7 gap-2 min-w-[900px] xl:min-w-0">
+          {/* Calendar Days Grid — horizontal scroll on mobile */}
+          <div className="flex-1 min-w-0 overflow-x-auto -mx-1 px-1">
+            <div className="grid grid-cols-7 gap-2 min-w-[700px] xl:min-w-0">
             {weekDates.map(day => {
               const dayTasks = getTasksForDay(day.dateStr)
               const isToday = day.dateStr === formatYYYYMMDD(new Date())
@@ -752,18 +757,20 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                 </div>
               )
             })}
+            </div>
           </div>
 
+          </div>
         </div>
       </DragDropContext>
 
       {/* Details & Annotations Modal */}
       {editingTarefa && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-border w-full max-w-4xl rounded-xl overflow-hidden shadow-2xl animate-scale-in flex flex-col md:flex-row max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-surface border border-border w-full max-w-4xl rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl animate-scale-in flex flex-col md:flex-row h-[92vh] sm:max-h-[90vh]">
             
             {/* Left Column: Form Fields */}
-            <form onSubmit={handleUpdateDemand} className="flex-1 p-6 border-b md:border-b-0 md:border-r border-border flex flex-col justify-between overflow-y-auto">
+            <form onSubmit={handleUpdateDemand} className="flex-1 p-4 md:p-6 border-b md:border-b-0 md:border-r border-border flex flex-col justify-between overflow-y-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="font-display text-lg font-bold text-text-primary">Detalhes da Demanda</h2>
@@ -954,16 +961,16 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
       {/* Create Demand Modal */}
       {isCreateOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-border w-full max-w-lg rounded-xl overflow-hidden shadow-2xl animate-scale-in">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-elevated">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-surface border border-border w-full max-w-lg rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-surface-elevated sticky top-0">
               <h2 className="font-display text-lg font-bold text-text-primary">Agendar Nova Demanda</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-text-secondary hover:text-text-primary">
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateDemand} className="p-6 space-y-4">
+            <form onSubmit={handleCreateDemand} className="p-4 md:p-6 space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-text-secondary uppercase">Título / Job</label>
                 <input
