@@ -112,7 +112,7 @@ export default async function ClienteDetailPage({
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card-elevated relative overflow-hidden flex flex-col justify-between p-5 group hover:border-gold/20 transition-all duration-300">
           <div className="flex items-start justify-between">
             <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Contrato Mensal</span>
@@ -155,20 +155,6 @@ export default async function ClienteDetailPage({
           <div className="absolute right-0 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-300 translate-x-8 translate-y-8" />
         </div>
 
-        {/* Interactions KPI */}
-        <div className="card-elevated relative overflow-hidden flex flex-col justify-between p-5 group hover:border-gold/20 transition-all duration-300 col-span-1 sm:col-span-3 md:col-span-1">
-          <div className="flex items-start justify-between">
-            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Interações</span>
-            <Activity size={16} className="text-text-secondary opacity-60" />
-          </div>
-          <div className="mt-4">
-            <p className="kpi-number">{interacoes?.length ?? 0}</p>
-            <p className="text-[10px] text-text-secondary mt-1 truncate">
-              Último contato: {ultimoContato ? formatDate(ultimoContato) : 'Nenhum'}
-            </p>
-          </div>
-          <div className="absolute right-0 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-300 translate-x-8 translate-y-8" />
-        </div>
       </div>
 
       {/* Main Content Layout */}
