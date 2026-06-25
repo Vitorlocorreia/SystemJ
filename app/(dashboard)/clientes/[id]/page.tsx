@@ -35,14 +35,24 @@ export default async function ClienteDetailPage({
     { data: projetos },
     { data: projetosKanban },
     { data: interacoes },
-    { data: profile }
+    { data: profile },
+    { data: tarefasDoCliente }
   ] = await Promise.all([
     supabase.from('clientes').select('*').eq('id', id).single(),
     supabase.from('projetos').select('id, nome, status, prazo, responsavel:profiles(nome)').eq('cliente_id', id).order('created_at', { ascending: false }),
     supabase.from('projetos_kanban').select('id, titulo, status, prazo, responsavel:profiles!responsavel_id(nome)').eq('cliente_id', id).order('created_at', { ascending: false }),
     supabase.from('interacoes').select('*, autor:profiles(nome)').eq('cliente_id', id).order('created_at', { ascending: false }),
-    supabase.from('profiles').select('role').eq('user_id', user.id).single()
+    supabase.from('profiles').select('role').eq('user_id', user.id).single(),
+    supabase
+      .from('tarefas')
+      .select('id, created_at, prazo, projeto:projetos!projeto_id(cliente_id)')
+      .order('created_at', { ascending: false })
   ])
+
+  // Filter tarefas that belong to this client via their projeto
+  const demandasDoCliente = (tarefasDoCliente as any[] | null)?.filter(
+    (t: any) => t.projeto?.cliente_id === id
+  ) ?? []
 
   if (!cliente) notFound()
 
@@ -53,6 +63,17 @@ export default async function ClienteDetailPage({
   const ativosProjetos = 
     (projetos?.filter((p: any) => p.status !== 'concluido' && p.status !== 'cancelado').length ?? 0) +
     (projetosKanban?.filter((p: any) => p.status !== 'concluido' && p.status !== 'cancelado').length ?? 0)
+
+  // Demandas (tarefas) stats
+  const totalDemandas = demandasDoCliente.length
+  const ultimaDemandaDate: string | null = demandasDoCliente.length > 0
+    ? (demandasDoCliente[0].prazo ?? demandasDoCliente[0].created_at)
+    : null
+
+  // Last interaction date
+  const ultimoContato: string | null = interacoes && interacoes.length > 0
+    ? interacoes[0].created_at
+    : null
 
   return (
     <div className="space-y-6 animate-fade-in max-w-5xl">
@@ -91,7 +112,7 @@ export default async function ClienteDetailPage({
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card-elevated relative overflow-hidden flex flex-col justify-between p-5 group hover:border-gold/20 transition-all duration-300">
           <div className="flex items-start justify-between">
             <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Contrato Mensal</span>
@@ -122,13 +143,28 @@ export default async function ClienteDetailPage({
 
         <div className="card-elevated relative overflow-hidden flex flex-col justify-between p-5 group hover:border-gold/20 transition-all duration-300">
           <div className="flex items-start justify-between">
+            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Demandas</span>
+            <FileText size={16} className="text-text-secondary opacity-60" />
+          </div>
+          <div className="mt-4">
+            <p className="kpi-number">{totalDemandas}</p>
+            <p className="text-[10px] text-text-secondary mt-1 truncate">
+              Última demanda: {ultimaDemandaDate ? formatDate(ultimaDemandaDate) : 'Nenhuma'}
+            </p>
+          </div>
+          <div className="absolute right-0 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-300 translate-x-8 translate-y-8" />
+        </div>
+
+        {/* Interactions KPI */}
+        <div className="card-elevated relative overflow-hidden flex flex-col justify-between p-5 group hover:border-gold/20 transition-all duration-300 col-span-1 sm:col-span-3 md:col-span-1">
+          <div className="flex items-start justify-between">
             <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Interações</span>
             <Activity size={16} className="text-text-secondary opacity-60" />
           </div>
           <div className="mt-4">
             <p className="kpi-number">{interacoes?.length ?? 0}</p>
             <p className="text-[10px] text-text-secondary mt-1 truncate">
-              Último contato: {interacoes && interacoes.length > 0 ? formatDate(interacoes[0].created_at) : 'Nenhum'}
+              Último contato: {ultimoContato ? formatDate(ultimoContato) : 'Nenhum'}
             </p>
           </div>
           <div className="absolute right-0 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:bg-white/10 transition-all duration-300 translate-x-8 translate-y-8" />
