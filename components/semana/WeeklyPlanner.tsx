@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle } from 'lucide-react'
+import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import type { Tarefa, StatusTarefa, Profile, ClientePublico } from '@/types'
 
@@ -87,6 +87,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   const [comentarios, setComentarios] = useState<any[]>([])
   const [comentariosLoading, setComentariosLoading] = useState(false)
   const [novoComentario, setNovoComentario] = useState('')
+  const [isAnnotationsOpen, setIsAnnotationsOpen] = useState(false)
 
   // Create Form state
   const [newTitle, setNewTitle] = useState('')
@@ -167,6 +168,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     setEditingTarefa(tarefa)
     setComentarios([])
     setComentariosLoading(true)
+    setIsAnnotationsOpen(false)
 
     const supabase = createClient()
     const { data, error } = await supabase
@@ -775,23 +777,138 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             </div>
           </div>
 
+           <form onSubmit={handleCreateDemand} className="p-4 md:p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Título / Job</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Captação de vídeo de treino - Reels"
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  className="input text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Descrição / Requisitos</label>
+                <textarea
+                  rows={3}
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  className="input text-sm resize-none"
+                  placeholder="Instruções sobre equipamentos, ideias de roteiro, etc."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase text-gold">Cliente Relacionado</label>
+                <select
+                  required
+                  value={newClienteId}
+                  onChange={e => setNewClienteId(e.target.value)}
+                  className="input text-sm border-gold/40 focus:border-gold"
+                >
+                  {clientes.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-text-secondary uppercase">Data Programada</label>
+                  <input
+                    type="date"
+                    value={newPrazo}
+                    onChange={e => setNewPrazo(e.target.value)}
+                    className="input text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-text-secondary uppercase">⏰ Horário de Início</label>
+                  <input
+                    type="time"
+                    value={newHorarioInicio}
+                    onChange={e => setNewHorarioInicio(e.target.value)}
+                    className="input text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Filmmaker / Responsável</label>
+                <select
+                  value={newRespId}
+                  onChange={e => setNewRespId(e.target.value)}
+                  className="input text-sm"
+                >
+                  <option value="">Atribuir depois (Fila)</option>
+                  {membros.map(m => (
+                    <option key={m.id} value={m.id}>{m.nome} ({m.cargo || m.role.replace(/_/g, ' ')})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="btn-ghost text-xs py-2 px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary text-xs py-2 px-4"
+                >
+                  {loading ? 'Agendando...' : 'Confirmar Agendamento'}
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       </DragDropContext>
 
       {/* Details & Annotations Modal */}
       {editingTarefa && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
-          <div className="bg-surface border border-border w-full max-w-4xl rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl animate-scale-in flex flex-col md:flex-row h-[92vh] sm:max-h-[90vh]">
+        <>
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+            <div className="bg-surface border border-border w-full max-w-4xl rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl animate-scale-in flex flex-col md:flex-row h-[92vh] sm:max-h-[90vh]">
             
             {/* Left Column: Form Fields */}
             <form onSubmit={handleUpdateDemand} className="flex-1 p-4 md:p-6 border-b md:border-b-0 md:border-r border-border flex flex-col justify-between overflow-y-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-display text-lg font-bold text-text-primary">Detalhes da Demanda</h2>
-                  <div className="flex items-center gap-1.5 text-[10px] text-gold font-bold uppercase tracking-wider">
-                    <span>{editingTarefa.projeto?.cliente?.nome || 'Sem Cliente'}</span>
+                  <div className="flex flex-col">
+                    <h2 className="font-display text-lg font-bold text-text-primary">Detalhes da Demanda</h2>
+                    <span className="text-[10px] text-gold font-bold uppercase tracking-wider">
+                      {editingTarefa.projeto?.cliente?.nome || 'Sem Cliente'}
+                    </span>
                   </div>
+                  
+                  {/* Annotations Trigger Button for Mobile */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAnnotationsOpen(true)}
+                    className="relative md:hidden flex items-center gap-1.5 bg-surface-elevated hover:bg-surface-elevated/80 border border-border px-3 py-1.5 rounded-lg text-xs font-semibold text-text-primary transition-all duration-200"
+                  >
+                    <MessageSquare size={14} className="text-gold" />
+                    <span>Anotações</span>
+                    {comentarios.length > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-danger/80 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-danger items-center justify-center text-[9px] font-bold text-white">
+                          {comentarios.length}
+                        </span>
+                      </span>
+                    )}
+                  </button>
                 </div>
 
                 <div className="space-y-1">
@@ -936,13 +1053,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             </form>
 
             {/* Right Column: Comments / Annotations */}
-            <div className="w-full md:w-[380px] p-6 bg-surface-elevated flex flex-col justify-between overflow-hidden h-[400px] md:h-auto">
+            <div className="hidden md:flex md:w-[380px] p-6 bg-surface-elevated flex-col justify-between overflow-hidden">
               <div className="flex flex-col flex-1 min-h-0">
                 <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
                   <h3 className="font-display text-sm font-bold text-text-primary">Anotações da Demanda</h3>
-                  <button onClick={() => setEditingTarefa(null)} className="text-text-secondary hover:text-text-primary md:hidden">
-                    <X size={18} />
-                  </button>
                 </div>
 
                 {/* Comments List */}
@@ -991,7 +1105,83 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
           </div>
         </div>
-      )}
+
+        {/* Mobile Annotations Drawer (Gaveta) */}
+        {isAnnotationsOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] md:hidden flex items-end justify-center">
+            {/* Backdrop click closes drawer */}
+            <div className="absolute inset-0" onClick={() => setIsAnnotationsOpen(false)} />
+            
+            <div className="relative bg-surface-elevated w-full max-h-[85vh] rounded-t-2xl border-t border-border flex flex-col justify-between overflow-hidden shadow-2xl animate-fade-in p-6 z-10">
+              {/* Handle bar for drawer drag suggestion */}
+              <div className="w-12 h-1.5 bg-border rounded-full mx-auto mb-4" />
+              
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                  <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-1.5">
+                    <span>Anotações da Demanda</span>
+                    {comentarios.length > 0 && (
+                      <span className="bg-gold/25 text-gold text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {comentarios.length}
+                      </span>
+                    )}
+                  </h3>
+                  <button 
+                    type="button"
+                    onClick={() => setIsAnnotationsOpen(false)} 
+                    className="text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-surface"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Comments List */}
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-4">
+                  {comentariosLoading ? (
+                    <div className="h-full flex items-center justify-center py-10">
+                      <p className="text-xs text-text-secondary animate-pulse">Carregando anotações...</p>
+                    </div>
+                  ) : comentarios.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center py-10 text-center">
+                      <p className="text-xs text-text-secondary opacity-60">Sem anotações ainda.</p>
+                      <p className="text-[10px] text-text-secondary opacity-40 mt-0.5">Escreva anotações importantes para o filmmaker.</p>
+                    </div>
+                  ) : (
+                    comentarios.map((c) => (
+                      <div key={c.id} className="p-3 rounded bg-surface border border-border/60 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="font-bold text-gold">{c.autor?.nome || 'Usuário'}</span>
+                          <span className="text-text-secondary">{formatDate(c.created_at)}</span>
+                        </div>
+                        <p className="text-text-primary whitespace-pre-line leading-relaxed">{c.conteudo}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Comment input */}
+              <form onSubmit={handleAddComentario} className="border-t border-border pt-4 mt-4 space-y-2">
+                <textarea
+                  required
+                  rows={2}
+                  value={novoComentario}
+                  onChange={e => setNovoComentario(e.target.value)}
+                  className="input text-xs resize-none py-2 bg-background border-border/80"
+                  placeholder="Adicione uma anotação de captação..."
+                />
+                <button
+                  type="submit"
+                  className="btn-primary w-full text-xs py-1.5"
+                >
+                  Registrar Anotação
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </>
+    )}
 
       {/* Create Demand Modal */}
       {isCreateOpen && (
