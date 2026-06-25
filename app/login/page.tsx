@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError(null)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
       setError('Email ou senha inválidos. Verifique suas credenciais.')
@@ -25,7 +25,16 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/dashboard')
+    // Buscar role do usuário para redirecionar corretamente
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', authData.user.id)
+      .single()
+
+    const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+
+    router.push(isGestor ? '/dashboard' : '/semana')
     router.refresh()
   }
 

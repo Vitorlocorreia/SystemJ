@@ -136,7 +136,7 @@ export default function KanbanBoard({ tarefasIniciais, projetoId, membros, curre
       return
     }
 
-    const respObj = membros.find(m => m.user_id === editingTarefa.responsavel_id) || null
+    const respObj = membros.find(m => m.id === editingTarefa.responsavel_id) || null
 
     setTarefas(prev =>
       prev.map(t =>
@@ -368,7 +368,7 @@ export default function KanbanBoard({ tarefasIniciais, projetoId, membros, curre
                   >
                     <option value="">Sem atribuição</option>
                     {membros.map(m => (
-                      <option key={m.user_id} value={m.user_id}>{m.nome} ({m.cargo})</option>
+                      <option key={m.id} value={m.id}>{m.nome} ({m.cargo})</option>
                     ))}
                   </select>
                 </div>

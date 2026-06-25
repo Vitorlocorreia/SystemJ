@@ -396,7 +396,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     let text = `🗓️ *AGENDA DA SEMANA - JOTA ESPORTIVO*\n`
     text += `De *${formatDDMM(currentWeekMonday)}* a *${formatDDMM(addDays(currentWeekMonday, 6))}*\n\n`
 
-    const selectedMembroObj = membros.find(m => m.user_id === exportMembro)
+    const selectedMembroObj = membros.find(m => m.id === exportMembro)
     if (selectedMembroObj) {
       text = `🗓️ *AGENDA DA SEMANA - ${selectedMembroObj.nome.toUpperCase()}*\n`
       text += `De *${formatDDMM(currentWeekMonday)}* a *${formatDDMM(addDays(currentWeekMonday, 6))}*\n\n`
@@ -464,8 +464,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         </div>
       </div>
 
-      {/* Mini Dashboard for Filmmakers and Designers */}
-      {!isGestor && (
+      {/* Mini Dashboard for Managers */}
+      {isGestor && (
         <div className="bg-surface border border-border rounded-xl p-4 space-y-4 animate-fade-in">
           <div className="flex flex-col sm:flex-row items-stretch gap-4">
             {/* Total Demands Card */}
@@ -578,7 +578,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
           >
             <option value="todos">Membro: Todos</option>
             {membros.map(m => (
-              <option key={m.user_id} value={m.user_id}>{m.nome}</option>
+              <option key={m.id} value={m.id}>{m.nome}</option>
             ))}
           </select>
 
@@ -1091,7 +1091,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                 >
                   <option value="todos">Exportar Geral (Toda a Equipe)</option>
                   {membros.map(m => (
-                    <option key={m.user_id} value={m.user_id}>{m.nome}</option>
+                    <option key={m.id} value={m.id}>{m.nome}</option>
                   ))}
                 </select>
               </div>

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import {
   Users,
@@ -11,6 +12,20 @@ import {
 
 export default async function DashboardPage() {
   const supabase = (await createClient()) as any
+
+  // Verificar autenticação e papel do usuário
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (!isGestor) redirect('/semana')
+
 
   // Fetch KPI data in parallel
   const [

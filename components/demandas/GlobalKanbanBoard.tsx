@@ -107,16 +107,18 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
 
   // Filter tasks
   const filteredTarefas = useMemo(() => {
+    const meuProfile = membros.find(m => m.user_id === currentUserId)
+    const meuProfileId = meuProfile?.id
     return tarefas.filter(t => {
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.descricao && t.descricao.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchMembro = selectedMembro === 'todos' || t.responsavel_id === selectedMembro
       const matchProjeto = selectedProjeto === 'todos' || t.projeto_id === selectedProjeto
-      const matchMine = !onlyMine || t.responsavel_id === currentUserId
+      const matchMine = !onlyMine || t.responsavel_id === meuProfileId
 
       return matchSearch && matchMembro && matchProjeto && matchMine
     })
-  }, [tarefas, searchTerm, selectedMembro, selectedProjeto, onlyMine, currentUserId])
+  }, [tarefas, searchTerm, selectedMembro, selectedProjeto, onlyMine, currentUserId, membros])
 
   const getColItems = (status: StatusTarefa) => {
     return filteredTarefas.filter(t => t.status === status).sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
@@ -187,7 +189,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     }
 
     // Load full responsavel profile locally
-    const respObj = membros.find(m => m.user_id === newRespId) || null
+    const respObj = membros.find(m => m.id === newRespId) || null
     const extendedNewTarefa: ExtendedTarefa = {
       ...data,
       responsavel: respObj,
@@ -229,7 +231,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       return
     }
 
-    const respObj = membros.find(m => m.user_id === editingTarefa.responsavel_id) || null
+    const respObj = membros.find(m => m.id === editingTarefa.responsavel_id) || null
     const projObj = projetos.find(p => p.id === editingTarefa.projeto_id) || null
 
     setTarefas(prev =>
@@ -292,7 +294,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
             >
               <option value="todos">Membro: Todos</option>
               {membros.map(m => (
-                <option key={m.user_id} value={m.user_id}>{m.nome}</option>
+                <option key={m.id} value={m.id}>{m.nome}</option>
               ))}
             </select>
           </div>
@@ -501,7 +503,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
                   >
                     <option value="">Sem atribuição</option>
                     {membros.map(m => (
-                      <option key={m.user_id} value={m.user_id}>{m.nome} ({m.cargo})</option>
+                      <option key={m.id} value={m.id}>{m.nome} ({m.cargo})</option>
                     ))}
                   </select>
                 </div>
@@ -681,7 +683,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
                 >
                   <option value="">Sem atribuição (Deixar na Fila)</option>
                   {membros.map(m => (
-                    <option key={m.user_id} value={m.user_id}>{m.nome} ({m.cargo})</option>
+                    <option key={m.id} value={m.id}>{m.nome} ({m.cargo})</option>
                   ))}
                 </select>
               </div>
