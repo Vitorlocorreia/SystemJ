@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getInitials } from '@/lib/utils'
 import type { Tarefa, StatusTarefa, Profile, ClientePublico } from '@/types'
 
 // Days of the week config
@@ -21,6 +21,7 @@ const DIAS_SEMANA = [
 
 interface ExtendedTarefa extends Tarefa {
   responsavel: Profile | null
+  responsaveis?: Profile[]
   projeto: {
     id: string
     nome: string
@@ -67,7 +68,20 @@ function formatDDMM(date: Date) {
 }
 
 export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, currentUserId, isGestor }: Props) {
-  const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(tarefasIniciais)
+  const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
+    return raw.map(t => {
+      const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
+      const resps = membros.filter(m => ids.includes(m.id))
+      return {
+        ...t,
+        responsavel_ids: ids,
+        responsaveis: resps,
+        responsavel: resps[0] || null
+      }
+    })
+  }, [membros])
+
+  const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [currentWeekMonday, setCurrentWeekMonday] = useState<Date>(() => getMonday(new Date()))
 
   const meuProfile = useMemo(() => membros.find(m => m.user_id === currentUserId), [membros, currentUserId])
@@ -93,16 +107,46 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   const [newTitle, setNewTitle] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newClienteId, setNewClienteId] = useState(clientes[0]?.id || '')
-  const [newRespId, setNewRespId] = useState<string>('')
+  const [newRespIds, setNewRespIds] = useState<string[]>([])
   const [newPrazo, setNewPrazo] = useState('')
   const [newHorarioInicio, setNewHorarioInicio] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Toggle helpers for multiple responsibles
+  const toggleResponsavelEdicao = useCallback((membroId: string) => {
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentIds = prev.responsavel_ids || []
+      const newIds = currentIds.includes(membroId)
+        ? currentIds.filter(id => id !== membroId)
+        : [...currentIds, membroId]
+      
+      const resps = membros.filter(m => newIds.includes(m.id))
+      return {
+        ...prev,
+        responsavel_ids: newIds,
+        responsaveis: resps,
+        responsavel: resps[0] || null
+      }
+    })
+  }, [membros])
+
+  const toggleResponsavelCriacao = useCallback((membroId: string) => {
+    setNewRespIds(prev =>
+      prev.includes(membroId)
+        ? prev.filter(id => id !== membroId)
+        : [...prev, membroId]
+    )
+  }, [])
 
   // Export state
   const [exportMembro, setExportMembro] = useState<string>('todos')
 
   // Computed permissions (must be after editingTarefa declaration)
-  const isResponsavel = !!(editingTarefa && meuProfile && editingTarefa.responsavel_id === meuProfile.id)
+  const isResponsavel = !!(editingTarefa && meuProfile && (
+    editingTarefa.responsavel_id === meuProfile.id ||
+    editingTarefa.responsavel_ids?.includes(meuProfile.id)
+  ))
   const canModifyTask = isGestor || isResponsavel
 
   // Calculate dates of current week
@@ -128,7 +172,9 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     return tarefas.filter(t => {
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.descricao && t.descricao.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchMembro = selectedMembro === 'todos' || t.responsavel_id === selectedMembro
+      const matchMembro = selectedMembro === 'todos' || 
+                          t.responsavel_id === selectedMembro ||
+                          t.responsavel_ids?.includes(selectedMembro)
       const matchCliente = selectedCliente === 'todos' || t.projeto?.cliente?.id === selectedCliente
 
       return matchSearch && matchMembro && matchCliente
@@ -138,7 +184,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   // Get current user's demands
   const minhasDemandas = useMemo(() => {
     return tarefas.filter(t => {
-      const isMine = t.responsavel_id === meuProfile?.id
+      const isMine = meuProfile && (
+        t.responsavel_id === meuProfile.id ||
+        t.responsavel_ids?.includes(meuProfile.id)
+      )
       if (!isMine) return false
       
       const isBacklog = !t.prazo
@@ -277,7 +326,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: 'a_fazer' as StatusTarefa,
-        responsavel_id: newRespId || null,
+        responsavel_id: newRespIds[0] || null,
+        responsavel_ids: newRespIds,
         prazo: newPrazo || null,
         horario_inicio: newHorarioInicio || null,
         ordem: 0
@@ -292,10 +342,12 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       return
     }
 
-    const respObj = membros.find(m => m.id === newRespId) || null
+    const resps = membros.filter(m => newRespIds.includes(m.id))
     const extendedNewTarefa: ExtendedTarefa = {
       ...data,
-      responsavel: respObj,
+      responsavel_ids: newRespIds,
+      responsaveis: resps,
+      responsavel: resps[0] || null,
     }
 
     setTarefas(prev => [...prev, extendedNewTarefa])
@@ -304,7 +356,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     setNewDesc('')
     setNewPrazo('')
     setNewHorarioInicio('')
-    setNewRespId('')
+    setNewRespIds([])
     toast.success('Demanda agendada com sucesso!')
   }
 
@@ -314,7 +366,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     e.preventDefault()
     if (!editingTarefa) return
 
-    const isResponsavel = meuProfile && editingTarefa.responsavel_id === meuProfile.id
+    const isResponsavel = meuProfile && (
+      editingTarefa.responsavel_id === meuProfile.id ||
+      editingTarefa.responsavel_ids?.includes(meuProfile.id)
+    )
     const canModify = isGestor || isResponsavel
 
     if (!canModify) {
@@ -330,7 +385,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       .update({
         titulo: editingTarefa.titulo,
         descricao: editingTarefa.descricao || null,
-        responsavel_id: editingTarefa.responsavel_id || null,
+        responsavel_id: editingTarefa.responsavel_ids?.[0] || null,
+        responsavel_ids: editingTarefa.responsavel_ids || [],
         prazo: editingTarefa.prazo || null,
         horario_inicio: editingTarefa.horario_inicio || null,
         status: editingTarefa.status,
@@ -345,12 +401,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       return
     }
 
-    const respObj = membros.find(m => m.id === editingTarefa.responsavel_id) || null
+    const resps = membros.filter(m => (editingTarefa.responsavel_ids || []).includes(m.id))
+    const updatedTarefa: ExtendedTarefa = {
+      ...editingTarefa,
+      responsavel_ids: editingTarefa.responsavel_ids || [],
+      responsaveis: resps,
+      responsavel: resps[0] || null
+    }
     
     setTarefas(prev =>
       prev.map(t =>
         t.id === editingTarefa.id
-          ? { ...editingTarefa, responsavel: respObj }
+          ? updatedTarefa
           : t
       )
     )
@@ -422,7 +484,9 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     weekDates.forEach(day => {
       const dayTasks = tarefas.filter(t => t.prazo === day.dateStr)
       const dayFilteredTasks = dayTasks.filter(t => {
-        return exportMembro === 'todos' || t.responsavel_id === exportMembro
+        return exportMembro === 'todos' || 
+               t.responsavel_id === exportMembro ||
+               t.responsavel_ids?.includes(exportMembro)
       })
 
       text += `*${day.label} (${formatDDMM(day.date)})*\n`
@@ -430,7 +494,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         text += `_Sem captações/demandas agendadas_\n\n`
       } else {
         dayFilteredTasks.forEach(t => {
-          const resp = t.responsavel?.nome ? `[${t.responsavel.nome.split(' ')[0]}] ` : ''
+          const nomesResponsaveis = t.responsaveis && t.responsaveis.length > 0
+            ? t.responsaveis.map(r => r.nome.split(' ')[0]).join(', ')
+            : t.responsavel?.nome ? t.responsavel.nome.split(' ')[0] : ''
+          const resp = nomesResponsaveis ? `[${nomesResponsaveis}] ` : ''
           const cli = t.projeto?.cliente?.nome ? `(${t.projeto.cliente.nome})` : 'Sem Cliente'
           const hora = t.horario_inicio ? ` 🕐 ${t.horario_inicio.slice(0, 5)}` : ''
           text += `• ${resp}${t.titulo} ${cli}${hora}\n`
@@ -653,11 +720,39 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                           } border-border/50`}
                         >
                           <div className="h-0.5 bg-warning/60 w-full" />
-                          <div className="px-2.5 py-2 bg-surface-elevated">
-                            <span className="text-[9px] text-warning/80 font-bold uppercase tracking-wider block mb-0.5 truncate">
-                              {tarefa.projeto?.cliente?.nome || 'Sem Data'}
-                            </span>
-                            <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{tarefa.titulo}</p>
+                          <div className="px-2.5 py-2 bg-surface-elevated flex flex-col justify-between min-h-[64px]">
+                            <div>
+                              <span className="text-[9px] text-warning/80 font-bold uppercase tracking-wider block mb-0.5 truncate">
+                                {tarefa.projeto?.cliente?.nome || 'Sem Data'}
+                              </span>
+                              <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{tarefa.titulo}</p>
+                            </div>
+                            
+                            {/* Avatar stack */}
+                            {tarefa.responsaveis && tarefa.responsaveis.length > 0 && (
+                              <div className="flex items-center -space-x-1.5 overflow-hidden mt-1.5 self-end">
+                                {tarefa.responsaveis.slice(0, 3).map((r) => (
+                                  <div 
+                                    key={r.id}
+                                    title={r.nome}
+                                    className="w-4.5 h-4.5 rounded-full bg-gold-muted border border-surface flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-border"
+                                  >
+                                    {r.avatar_url ? (
+                                      <img src={r.avatar_url} alt={r.nome} className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-[7px] font-bold text-gold">
+                                        {getInitials(r.nome)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                                {tarefa.responsaveis.length > 3 && (
+                                  <span className="text-[7px] font-bold text-text-secondary pl-1">
+                                    +{tarefa.responsaveis.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -752,11 +847,39 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                                   <div className="h-0.5 bg-gold/30 w-full" />
                                 )}
                                 {/* Event body */}
-                                <div className="px-2.5 py-2 bg-surface-elevated">
-                                  <span className="text-[9px] text-text-secondary/70 font-semibold uppercase tracking-wider block mb-0.5 truncate">
-                                    {tarefa.projeto?.cliente?.nome || 'Sem Cliente'}
-                                  </span>
-                                  <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{tarefa.titulo}</p>
+                                <div className="px-2.5 py-2 bg-surface-elevated flex flex-col justify-between min-h-[64px]">
+                                  <div>
+                                    <span className="text-[9px] text-text-secondary/70 font-semibold uppercase tracking-wider block mb-0.5 truncate">
+                                      {tarefa.projeto?.cliente?.nome || 'Sem Cliente'}
+                                    </span>
+                                    <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{tarefa.titulo}</p>
+                                  </div>
+                                  
+                                  {/* Avatar stack */}
+                                  {tarefa.responsaveis && tarefa.responsaveis.length > 0 && (
+                                    <div className="flex items-center -space-x-1.5 overflow-hidden mt-1.5 self-end">
+                                      {tarefa.responsaveis.slice(0, 3).map((r) => (
+                                        <div 
+                                          key={r.id}
+                                          title={r.nome}
+                                          className="w-4.5 h-4.5 rounded-full bg-gold-muted border border-surface flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-border"
+                                        >
+                                          {r.avatar_url ? (
+                                            <img src={r.avatar_url} alt={r.nome} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <span className="text-[7px] font-bold text-gold">
+                                              {getInitials(r.nome)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ))}
+                                      {tarefa.responsaveis.length > 3 && (
+                                        <span className="text-[7px] font-bold text-text-secondary pl-1">
+                                          +{tarefa.responsaveis.length - 3}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -909,19 +1032,38 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   </div>
                 )}
                  <div className="space-y-1">
-                   <label className="text-xs font-semibold text-text-secondary uppercase">Membro Responsável</label>
-                  <select
-                    value={editingTarefa.responsavel_id || ''}
-                    disabled={!isGestor}
-                    onChange={e => setEditingTarefa({ ...editingTarefa, responsavel_id: e.target.value || null })}
-                    className="input text-sm"
-                  >
-                    <option value="">Sem atribuição</option>
-                    {membros.map(m => (
-                      <option key={m.id} value={m.id}>{m.nome} ({m.cargo || m.role.replace(/_/g, ' ')})</option>
-                    ))}
-                  </select>
-                </div>
+                   <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
+                   <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
+                     {membros.map(m => {
+                       const isSelected = editingTarefa.responsavel_ids?.includes(m.id)
+                       return (
+                         <button
+                           key={m.id}
+                           type="button"
+                           onClick={() => toggleResponsavelEdicao(m.id)}
+                           disabled={!isGestor}
+                           className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                             isSelected 
+                               ? 'border-gold bg-gold/10 text-text-primary' 
+                               : 'border-border bg-surface hover:border-border-hover text-text-secondary'
+                           }`}
+                         >
+                           <div className="w-6 h-6 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[9px] font-bold">
+                             {m.avatar_url ? (
+                               <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                             ) : (
+                               getInitials(m.nome)
+                             )}
+                           </div>
+                           <div className="min-w-0 flex-1">
+                             <p className="text-xs font-medium truncate leading-tight">{m.nome.split(' ')[0]} {m.nome.split(' ')[1] || ''}</p>
+                             <p className="text-[9px] text-text-secondary truncate leading-none capitalize mt-0.5">{m.cargo || m.role.replace(/_/g, ' ')}</p>
+                           </div>
+                         </button>
+                       )
+                     })}
+                   </div>
+                 </div>
               </div>
 
               {/* Form Actions */}
@@ -1162,17 +1304,36 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-text-secondary uppercase">Filmmaker / Responsável</label>
-                <select
-                  value={newRespId}
-                  onChange={e => setNewRespId(e.target.value)}
-                  className="input text-sm"
-                >
-                  <option value="">Atribuir depois (Fila)</option>
-                  {membros.map(m => (
-                    <option key={m.id} value={m.id}>{m.nome} ({m.cargo || m.role.replace(/_/g, ' ')})</option>
-                  ))}
-                </select>
+                <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
+                <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
+                  {membros.map(m => {
+                    const isSelected = newRespIds.includes(m.id)
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleResponsavelCriacao(m.id)}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                          isSelected 
+                            ? 'border-gold bg-gold/10 text-text-primary' 
+                            : 'border-border bg-surface hover:border-border-hover text-text-secondary'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[9px] font-bold">
+                          {m.avatar_url ? (
+                            <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                          ) : (
+                            getInitials(m.nome)
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate leading-tight">{m.nome.split(' ')[0]} {m.nome.split(' ')[1] || ''}</p>
+                          <p className="text-[9px] text-text-secondary truncate leading-none capitalize mt-0.5">{m.cargo || m.role.replace(/_/g, ' ')}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">

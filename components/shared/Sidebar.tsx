@@ -24,7 +24,7 @@ const navItems = [
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/projetos', label: 'Projetos', icon: KanbanSquare, gestorOnly: true },
   { href: '/equipe', label: 'Equipe', icon: UserCog },
-  { href: '/configuracoes', label: 'Config', icon: Settings, gestorOnly: true },
+  { href: '/configuracoes', label: 'Config', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -36,7 +36,7 @@ export default function Sidebar() {
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const visibleItems = navItems.filter(item => {
     if (!isGestor) {
-      return item.href === '/semana'
+      return item.href === '/semana' || item.href === '/configuracoes'
     }
     return !item.gestorOnly || isGestor
   })
@@ -111,10 +111,18 @@ export default function Sidebar() {
               'flex items-center gap-2.5 px-2.5 py-2.5 rounded',
               collapsed && 'justify-center'
             )}>
-              <div className="w-7 h-7 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0">
-                <span className="text-gold text-[10px] font-bold">
-                  {getInitials(profile.nome)}
-                </span>
+              <div className="w-7 h-7 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.nome}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-gold text-[10px] font-bold">
+                    {getInitials(profile.nome)}
+                  </span>
+                )}
               </div>
               {!collapsed && (
                 <div className="min-w-0">

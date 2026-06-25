@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Trash2, User, CreditCard } from 'lucide-react'
+import { Plus, Trash2, User, CreditCard, Camera, Loader2 } from 'lucide-react'
+import { getInitials } from '@/lib/utils'
 import type { Profile, CategoriaFinanceiro } from '@/types'
 
 interface ConfiguracoesFormProps {
@@ -21,6 +22,9 @@ export default function ConfiguracoesForm({ profile, categorias, isGestor }: Con
     cargo: profile.cargo || '',
   })
   const [profileLoading, setProfileLoading] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Categories form state
   const [newCat, setNewCat] = useState<{ nome: string; tipo: 'receita' | 'despesa'; cor: string }>({
@@ -29,6 +33,82 @@ export default function ConfiguracoesForm({ profile, categorias, isGestor }: Con
     cor: '#C9A84C',
   })
   const [catLoading, setCatLoading] = useState(false)
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione apenas arquivos de imagem (JPG, PNG, WebP)')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 5MB')
+      return
+    }
+
+    setAvatarUploading(true)
+    const supabase = createClient() as any
+
+    // Upload to storage
+    const ext = file.name.split('.').pop()
+    const fileName = `${profile.id}.${ext}`
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, { upsert: true, cacheControl: '3600' })
+
+    if (uploadError) {
+      toast.error('Erro ao fazer upload da foto: ' + uploadError.message)
+      setAvatarUploading(false)
+      return
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
+
+    // Update profile
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', profile.id)
+
+    if (updateError) {
+      toast.error('Erro ao salvar URL da foto: ' + updateError.message)
+    } else {
+      setAvatarUrl(publicUrl)
+      toast.success('Foto de perfil atualizada!')
+      router.refresh()
+    }
+
+    setAvatarUploading(false)
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleRemoveAvatar() {
+    if (!avatarUrl) return
+    if (!confirm('Deseja remover sua foto de perfil?')) return
+
+    setAvatarUploading(true)
+    const supabase = createClient() as any
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: null })
+      .eq('id', profile.id)
+
+    if (error) {
+      toast.error('Erro ao remover foto: ' + error.message)
+    } else {
+      setAvatarUrl(null)
+      toast.success('Foto removida!')
+      router.refresh()
+    }
+    setAvatarUploading(false)
+  }
 
   async function handleProfileSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -133,51 +213,130 @@ export default function ConfiguracoesForm({ profile, categorias, isGestor }: Con
       </div>
 
       {activeTab === 'perfil' && (
-        <form onSubmit={handleProfileSubmit} className="card max-w-xl space-y-5">
-          <h2 className="label text-text-primary text-base">Informações Pessoais</h2>
+        <div className="max-w-xl space-y-5">
+          {/* Avatar Section */}
+          <div className="card space-y-4">
+            <h2 className="label text-text-primary text-base">Foto de Perfil</h2>
+            <div className="flex items-center gap-5">
+              {/* Avatar display */}
+              <div className="relative group">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-border bg-gold-muted flex items-center justify-center shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={profile.nome}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="font-display text-gold font-bold text-2xl">
+                      {getInitials(profile.nome)}
+                    </span>
+                  )}
+                </div>
+                {/* Overlay on hover */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
+                >
+                  {avatarUploading ? (
+                    <Loader2 size={20} className="text-white animate-spin" />
+                  ) : (
+                    <Camera size={20} className="text-white" />
+                  )}
+                </button>
+              </div>
 
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="nome" className="label">Nome *</label>
-              <input
-                id="nome"
-                required
-                value={profileForm.nome}
-                onChange={(e) => setProfileForm(prev => ({ ...prev, nome: e.target.value }))}
-                className="input"
-              />
+              {/* Upload actions */}
+              <div className="space-y-2 flex-1">
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  JPG, PNG ou WebP até 5MB. A foto aparecerá na barra lateral e nas demandas.
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarUploading}
+                    className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                  >
+                    {avatarUploading ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Camera size={12} />
+                    )}
+                    {avatarUrl ? 'Trocar Foto' : 'Carregar Foto'}
+                  </button>
+                  {avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarUploading}
+                      className="text-xs text-danger/70 hover:text-danger transition-colors py-1.5"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-
-            <div>
-              <label htmlFor="cargo" className="label">Cargo</label>
-              <input
-                id="cargo"
-                value={profileForm.cargo}
-                onChange={(e) => setProfileForm(prev => ({ ...prev, cargo: e.target.value }))}
-                placeholder="Ex: Filmmaker Sênior, Designer"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="label">Nível de Acesso (Cargo Real)</label>
-              <input
-                disabled
-                value={profile.role.replace(/_/g, ' ').toUpperCase()}
-                className="input bg-surface-elevated text-text-secondary border-dashed cursor-not-allowed"
-              />
-              <p className="text-[10px] text-text-secondary mt-1">
-                Nível de acesso gerenciado pelos administradores de equipe.
-              </p>
-            </div>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
           </div>
 
-          <div className="pt-4 border-t border-border flex justify-end">
-            <button type="submit" disabled={profileLoading} className="btn-primary">
-              {profileLoading ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
-          </div>
-        </form>
+          {/* Profile form */}
+          <form onSubmit={handleProfileSubmit} className="card space-y-5">
+            <h2 className="label text-text-primary text-base">Informações Pessoais</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="nome" className="label">Nome *</label>
+                <input
+                  id="nome"
+                  required
+                  value={profileForm.nome}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, nome: e.target.value }))}
+                  className="input"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="cargo" className="label">Cargo</label>
+                <input
+                  id="cargo"
+                  value={profileForm.cargo}
+                  onChange={(e) => setProfileForm(prev => ({ ...prev, cargo: e.target.value }))}
+                  placeholder="Ex: Filmmaker Sênior, Designer"
+                  className="input"
+                />
+              </div>
+
+              <div>
+                <label className="label">Nível de Acesso (Cargo Real)</label>
+                <input
+                  disabled
+                  value={profile.role.replace(/_/g, ' ').toUpperCase()}
+                  className="input bg-surface-elevated text-text-secondary border-dashed cursor-not-allowed"
+                />
+                <p className="text-[10px] text-text-secondary mt-1">
+                  Nível de acesso gerenciado pelos administradores de equipe.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-border flex justify-end">
+              <button type="submit" disabled={profileLoading} className="btn-primary">
+                {profileLoading ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {activeTab === 'categorias' && isGestor && (

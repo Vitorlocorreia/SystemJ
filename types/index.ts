@@ -72,12 +72,14 @@ export interface Tarefa {
   descricao: string | null
   status: StatusTarefa
   responsavel_id: string | null
+  responsavel_ids: string[]
   prazo: string | null
   horario_inicio: string | null
   horario_conclusao: string | null
   ordem: number
   created_at: string
   responsavel?: Profile | null
+  responsaveis?: Profile[]
 }
 
 export interface Comentario {

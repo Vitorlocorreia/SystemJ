@@ -23,13 +23,18 @@ export default async function EquipePage() {
   // Get task counts per member
   const { data: taskCounts } = await supabase
     .from('tarefas')
-    .select('responsavel_id')
+    .select('responsavel_id, responsavel_ids')
     .in('status', ['a_fazer', 'em_andamento'])
 
-  const countByMembro = (taskCounts as { responsavel_id: string | null }[] ?? []).reduce((acc: Record<string, number>, t) => {
-    if (t.responsavel_id) {
-      acc[t.responsavel_id] = (acc[t.responsavel_id] ?? 0) + 1
+  const countByMembro = (taskCounts as { responsavel_id: string | null; responsavel_ids: string[] | null }[] ?? []).reduce((acc: Record<string, number>, t) => {
+    const ids = new Set<string>()
+    if (t.responsavel_id) ids.add(t.responsavel_id)
+    if (t.responsavel_ids) {
+      t.responsavel_ids.forEach(id => ids.add(id))
     }
+    ids.forEach(id => {
+      acc[id] = (acc[id] ?? 0) + 1
+    })
     return acc
   }, {})
 
@@ -47,10 +52,14 @@ export default async function EquipePage() {
           return (
             <div key={membro.id} className="card hover:border-gold/20 transition-all duration-200 group">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gold-muted border border-gold/20 flex items-center justify-center shrink-0">
-                  <span className="font-display text-gold font-bold text-lg">
-                    {getInitials(membro.nome)}
-                  </span>
+                <div className="w-12 h-12 rounded-xl bg-gold-muted border border-gold/20 flex items-center justify-center shrink-0 overflow-hidden">
+                  {membro.avatar_url ? (
+                    <img src={membro.avatar_url} alt={membro.nome} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display text-gold font-bold text-lg">
+                      {getInitials(membro.nome)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 min-w-0">

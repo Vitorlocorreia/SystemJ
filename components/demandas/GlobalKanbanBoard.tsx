@@ -5,7 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Plus, Calendar, User, Search, X, Trash2 } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getInitials } from '@/lib/utils'
 import type { Tarefa, StatusTarefa, Profile, Projeto } from '@/types'
 
 const colunas: { id: StatusTarefa; label: string; color: string }[] = [
@@ -16,6 +16,7 @@ const colunas: { id: StatusTarefa; label: string; color: string }[] = [
 
 interface ExtendedTarefa extends Tarefa {
   responsavel: Profile | null
+  responsaveis?: Profile[]
   projeto: {
     id: string
     nome: string
@@ -33,7 +34,20 @@ interface Props {
 }
 
 export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, currentUserId }: Props) {
-  const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(tarefasIniciais)
+  const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
+    return raw.map(t => {
+      const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
+      const resps = membros.filter(m => ids.includes(m.id))
+      return {
+        ...t,
+        responsavel_ids: ids,
+        responsaveis: resps,
+        responsavel: resps[0] || null
+      }
+    })
+  }, [membros])
+
+  const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
   const [selectedProjeto, setSelectedProjeto] = useState<string>('todos')
@@ -47,6 +61,42 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
   const [comentarios, setComentarios] = useState<any[]>([])
   const [comentariosLoading, setComentariosLoading] = useState(false)
   const [novoComentario, setNovoComentario] = useState('')
+
+  // Create Form state
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newProjId, setNewProjId] = useState(projetos[0]?.id || '')
+  const [newRespIds, setNewRespIds] = useState<string[]>([])
+  const [newPrazo, setNewPrazo] = useState('')
+  const [newStatus, setNewStatus] = useState<StatusTarefa>('a_fazer')
+  const [loading, setLoading] = useState(false)
+
+  // Toggle helpers for multiple responsibles
+  const toggleResponsavelEdicao = useCallback((membroId: string) => {
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentIds = prev.responsavel_ids || []
+      const newIds = currentIds.includes(membroId)
+        ? currentIds.filter(id => id !== membroId)
+        : [...currentIds, membroId]
+      
+      const resps = membros.filter(m => newIds.includes(m.id))
+      return {
+        ...prev,
+        responsavel_ids: newIds,
+        responsaveis: resps,
+        responsavel: resps[0] || null
+      }
+    })
+  }, [membros])
+
+  const toggleResponsavelCriacao = useCallback((membroId: string) => {
+    setNewRespIds(prev =>
+      prev.includes(membroId)
+        ? prev.filter(id => id !== membroId)
+        : [...prev, membroId]
+    )
+  }, [])
 
   const abrirDetalhesTarefa = useCallback(async (tarefa: ExtendedTarefa) => {
     setEditingTarefa(tarefa)
@@ -96,15 +146,6 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     }
   }
 
-  // Create Form state
-  const [newTitle, setNewTitle] = useState('')
-  const [newDesc, setNewDesc] = useState('')
-  const [newProjId, setNewProjId] = useState(projetos[0]?.id || '')
-  const [newRespId, setNewRespId] = useState<string>('')
-  const [newPrazo, setNewPrazo] = useState('')
-  const [newStatus, setNewStatus] = useState<StatusTarefa>('a_fazer')
-  const [loading, setLoading] = useState(false)
-
   // Filter tasks
   const filteredTarefas = useMemo(() => {
     const meuProfile = membros.find(m => m.user_id === currentUserId)
@@ -112,9 +153,13 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     return tarefas.filter(t => {
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.descricao && t.descricao.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchMembro = selectedMembro === 'todos' || t.responsavel_id === selectedMembro
+      const matchMembro = selectedMembro === 'todos' || 
+                          t.responsavel_id === selectedMembro ||
+                          t.responsavel_ids?.includes(selectedMembro)
       const matchProjeto = selectedProjeto === 'todos' || t.projeto_id === selectedProjeto
-      const matchMine = !onlyMine || t.responsavel_id === meuProfileId
+      const matchMine = !onlyMine || 
+                        t.responsavel_id === meuProfileId ||
+                        t.responsavel_ids?.includes(meuProfileId || '')
 
       return matchSearch && matchMembro && matchProjeto && matchMine
     })
@@ -174,7 +219,8 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: newStatus,
-        responsavel_id: newRespId || null,
+        responsavel_id: newRespIds[0] || null,
+        responsavel_ids: newRespIds,
         prazo: newPrazo || null,
         ordem: countInCol
       })
@@ -189,10 +235,12 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     }
 
     // Load full responsavel profile locally
-    const respObj = membros.find(m => m.id === newRespId) || null
+    const resps = membros.filter(m => newRespIds.includes(m.id))
     const extendedNewTarefa: ExtendedTarefa = {
       ...data,
-      responsavel: respObj,
+      responsavel_ids: newRespIds,
+      responsaveis: resps,
+      responsavel: resps[0] || null,
     }
 
     setTarefas(prev => [...prev, extendedNewTarefa])
@@ -201,7 +249,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     setNewTitle('')
     setNewDesc('')
     setNewPrazo('')
-    setNewRespId('')
+    setNewRespIds([])
     toast.success('Demanda criada com sucesso!')
   }
 
@@ -218,7 +266,8 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       .update({
         titulo: editingTarefa.titulo,
         descricao: editingTarefa.descricao || null,
-        responsavel_id: editingTarefa.responsavel_id || null,
+        responsavel_id: editingTarefa.responsavel_ids?.[0] || null,
+        responsavel_ids: editingTarefa.responsavel_ids || [],
         prazo: editingTarefa.prazo || null,
         status: editingTarefa.status,
       })
@@ -231,7 +280,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       return
     }
 
-    const respObj = membros.find(m => m.id === editingTarefa.responsavel_id) || null
+    const resps = membros.filter(m => (editingTarefa.responsavel_ids || []).includes(m.id))
     const projObj = projetos.find(p => p.id === editingTarefa.projeto_id) || null
 
     setTarefas(prev =>
@@ -239,7 +288,9 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
         t.id === editingTarefa.id
           ? {
               ...editingTarefa,
-              responsavel: respObj,
+              responsavel_ids: editingTarefa.responsavel_ids || [],
+              responsaveis: resps,
+              responsavel: resps[0] || null,
               projeto: projObj ? { id: projObj.id, nome: projObj.nome, cliente: projObj.cliente } : null
             }
           : t
@@ -404,13 +455,33 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
                                   <span>{tarefa.prazo ? formatDate(tarefa.prazo) : 'Sem prazo'}</span>
                                 </div>
 
-                                {/* Responsible */}
-                                <div className="flex items-center gap-1.5">
-                                  <div className="w-5 h-5 rounded-full bg-surface-elevated border border-border flex items-center justify-center text-[10px] font-bold text-gold">
-                                    {tarefa.responsavel?.nome ? tarefa.responsavel.nome.substring(0, 2).toUpperCase() : '?'}
+                                {/* Responsible Stack */}
+                                {tarefa.responsaveis && tarefa.responsaveis.length > 0 ? (
+                                  <div className="flex items-center -space-x-1.5 overflow-hidden">
+                                    {tarefa.responsaveis.slice(0, 3).map((r) => (
+                                      <div 
+                                        key={r.id}
+                                        title={r.nome}
+                                        className="w-5 h-5 rounded-full bg-gold-muted border border-surface flex items-center justify-center shrink-0 overflow-hidden ring-1 ring-border"
+                                      >
+                                        {r.avatar_url ? (
+                                          <img src={r.avatar_url} alt={r.nome} className="w-full h-full object-cover" />
+                                        ) : (
+                                          <span className="text-[8px] font-bold text-gold">
+                                            {getInitials(r.nome)}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {tarefa.responsaveis.length > 3 && (
+                                      <span className="text-[8px] font-bold text-text-secondary pl-1">
+                                        +{tarefa.responsaveis.length - 3}
+                                      </span>
+                                    )}
                                   </div>
-                                  <span className="max-w-[70px] truncate">{tarefa.responsavel?.nome.split(' ')[0] || 'Sem atribuição'}</span>
-                                </div>
+                                ) : (
+                                  <span className="text-[10px] text-text-secondary opacity-50 italic">Sem atribuição</span>
+                                )}
                               </div>
                             </div>
                           )}
@@ -495,17 +566,36 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-text-secondary uppercase">Responsável</label>
-                  <select
-                    value={editingTarefa.responsavel_id || ''}
-                    onChange={e => setEditingTarefa({ ...editingTarefa, responsavel_id: e.target.value || null })}
-                    className="input text-sm"
-                  >
-                    <option value="">Sem atribuição</option>
-                    {membros.map(m => (
-                      <option key={m.id} value={m.id}>{m.nome} ({m.cargo})</option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
+                  <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
+                    {membros.map(m => {
+                      const isSelected = editingTarefa.responsavel_ids?.includes(m.id)
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleResponsavelEdicao(m.id)}
+                          className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                            isSelected 
+                              ? 'border-gold bg-gold/10 text-text-primary' 
+                              : 'border-border bg-surface hover:border-border-hover text-text-secondary'
+                          }`}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[9px] font-bold">
+                            {m.avatar_url ? (
+                              <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                            ) : (
+                              getInitials(m.nome)
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium truncate leading-tight">{m.nome.split(' ')[0]} {m.nome.split(' ')[1] || ''}</p>
+                            <p className="text-[9px] text-text-secondary truncate leading-none capitalize mt-0.5">{m.cargo || m.role.replace(/_/g, ' ')}</p>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -675,17 +765,36 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-text-secondary uppercase">Responsável</label>
-                <select
-                  value={newRespId}
-                  onChange={e => setNewRespId(e.target.value)}
-                  className="input text-sm"
-                >
-                  <option value="">Sem atribuição (Deixar na Fila)</option>
-                  {membros.map(m => (
-                    <option key={m.id} value={m.id}>{m.nome} ({m.cargo})</option>
-                  ))}
-                </select>
+                <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
+                <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
+                  {membros.map(m => {
+                    const isSelected = newRespIds.includes(m.id)
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleResponsavelCriacao(m.id)}
+                        className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
+                          isSelected 
+                            ? 'border-gold bg-gold/10 text-text-primary' 
+                            : 'border-border bg-surface hover:border-border-hover text-text-secondary'
+                        }`}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[9px] font-bold">
+                          {m.avatar_url ? (
+                            <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                          ) : (
+                            getInitials(m.nome)
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-medium truncate leading-tight">{m.nome.split(' ')[0]} {m.nome.split(' ')[1] || ''}</p>
+                          <p className="text-[9px] text-text-secondary truncate leading-none capitalize mt-0.5">{m.cargo || m.role.replace(/_/g, ' ')}</p>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Action buttons */}

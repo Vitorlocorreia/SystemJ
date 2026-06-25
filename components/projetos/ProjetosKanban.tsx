@@ -127,6 +127,7 @@ export default function ProjetosKanban({ projetosIniciais, membros, clientes, cu
       .update({
         titulo: selectedProjeto.titulo,
         descricao: selectedProjeto.descricao || null,
+        cliente_id: selectedProjeto.cliente_id || null,
         responsavel_id: selectedProjeto.responsavel_id || null,
         status: selectedProjeto.status,
         prioridade: selectedProjeto.prioridade,
@@ -138,7 +139,8 @@ export default function ProjetosKanban({ projetosIniciais, membros, clientes, cu
     setLoading(false)
     if (error) { toast.error('Erro: ' + error.message); return }
     const respObj = membros.find(m => m.id === selectedProjeto.responsavel_id) || null
-    setProjetos(prev => prev.map(p => p.id === selectedProjeto.id ? { ...selectedProjeto, responsavel: respObj } : p))
+    const cliObj = clientes.find(c => c.id === selectedProjeto.cliente_id) || null
+    setProjetos(prev => prev.map(p => p.id === selectedProjeto.id ? { ...selectedProjeto, responsavel: respObj, cliente: cliObj } : p))
     setSelectedProjeto(null)
     toast.success('Salvo!')
   }
@@ -326,6 +328,16 @@ export default function ProjetosKanban({ projetosIniciais, membros, clientes, cu
                 <textarea rows={2} value={selectedProjeto.descricao || ''}
                   onChange={e => setSelectedProjeto({ ...selectedProjeto, descricao: e.target.value })}
                   className="input text-sm resize-none" placeholder="Contexto do projeto..." />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">Cliente Relacionado</label>
+                <select value={selectedProjeto.cliente_id || ''}
+                  onChange={e => setSelectedProjeto({ ...selectedProjeto, cliente_id: e.target.value || null })}
+                  className="input text-sm">
+                  <option value="">Sem cliente</option>
+                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
