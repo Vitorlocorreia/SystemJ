@@ -74,6 +74,7 @@ export interface Tarefa {
   responsavel_id: string | null
   prazo: string | null
   horario_inicio: string | null
+  horario_conclusao: string | null
   ordem: number
   created_at: string
   responsavel?: Profile | null

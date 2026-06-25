@@ -69,6 +69,8 @@ function formatDDMM(date: Date) {
 export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, currentUserId, isGestor }: Props) {
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(tarefasIniciais)
   const [currentWeekMonday, setCurrentWeekMonday] = useState<Date>(() => getMonday(new Date()))
+
+  const meuProfile = useMemo(() => membros.find(m => m.user_id === currentUserId), [membros, currentUserId])
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -97,6 +99,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
   // Export state
   const [exportMembro, setExportMembro] = useState<string>('todos')
+
+  // Computed permissions (must be after editingTarefa declaration)
+  const isResponsavel = !!(editingTarefa && meuProfile && editingTarefa.responsavel_id === meuProfile.id)
+  const canModifyTask = isGestor || isResponsavel
 
   // Calculate dates of current week
   const weekDates = useMemo(() => {
@@ -130,7 +136,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
   // Get current user's demands
   const minhasDemandas = useMemo(() => {
-    const meuProfile = membros.find(m => m.user_id === currentUserId)
     return tarefas.filter(t => {
       const isMine = t.responsavel_id === meuProfile?.id
       if (!isMine) return false
@@ -140,7 +145,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       
       return isBacklog || isInCurrentWeek
     })
-  }, [tarefas, currentUserId, weekDates, membros])
+  }, [tarefas, meuProfile, weekDates])
 
   // Get tasks for a specific day — sorted by start time (nulls last)
   const getTasksForDay = (dateStr: string) => {
@@ -301,10 +306,19 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     toast.success('Demanda agendada com sucesso!')
   }
 
+
   // Handle Update Demand
   async function handleUpdateDemand(e: React.FormEvent) {
     e.preventDefault()
-    if (!isGestor || !editingTarefa) return
+    if (!editingTarefa) return
+
+    const isResponsavel = meuProfile && editingTarefa.responsavel_id === meuProfile.id
+    const canModify = isGestor || isResponsavel
+
+    if (!canModify) {
+      toast.error('Você não tem permissão para alterar esta demanda.')
+      return
+    }
 
     setLoading(true)
     const supabase = createClient()
@@ -318,6 +332,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         prazo: editingTarefa.prazo || null,
         horario_inicio: editingTarefa.horario_inicio || null,
         status: editingTarefa.status,
+        horario_conclusao: editingTarefa.horario_conclusao || null,
       })
       .eq('id', editingTarefa.id)
 
@@ -464,11 +479,11 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         </div>
       </div>
 
-      {/* Mini Dashboard for Managers */}
-      {isGestor && (
-        <div className="bg-surface border border-border rounded-xl p-4 space-y-4 animate-fade-in">
-          <div className="flex flex-col sm:flex-row items-stretch gap-4">
-            {/* Total Demands Card */}
+      {/* Mini Dashboard / Minhas Demandas */}
+      <div className="bg-surface border border-border rounded-xl p-4 space-y-4 animate-fade-in">
+        <div className="flex flex-col sm:flex-row items-stretch gap-4">
+          {/* Total Demands Card */}
+          {isGestor && (
             <div className="flex-1 bg-surface-elevated/40 border border-border/60 rounded-xl p-4 flex flex-col justify-between">
               <div>
                 <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Demandas na Semana</p>
@@ -476,65 +491,65 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               </div>
               <p className="text-[10px] text-text-secondary mt-1.5">Cronograma geral da equipe.</p>
             </div>
-
-            {/* My Demands Card */}
-            <button
-              type="button"
-              onClick={() => setMinhasDemandasExpanded(!minhasDemandasExpanded)}
-              className="flex-1 bg-surface-elevated/40 border border-border/60 rounded-xl p-4 text-left hover:border-gold/30 transition-all duration-150 group flex flex-col justify-between cursor-pointer"
-            >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest group-hover:text-gold transition-colors">Minhas Demandas</span>
-                <span className="text-[9px] bg-gold-muted text-gold border border-gold/20 px-1.5 py-0.5 rounded font-bold">
-                  {minhasDemandas.length}
-                </span>
-              </div>
-              <p className="font-display text-3xl font-bold text-gold mt-2">
-                {minhasDemandas.length} atribuídas
-              </p>
-              <span className="text-[10px] text-gold font-sans font-medium group-hover:underline mt-1.5">
-                {minhasDemandasExpanded ? '▲ Recolher lista' : '▼ Clique para abrir a lista'}
-              </span>
-            </button>
-          </div>
-
-          {/* Accordion List */}
-          {minhasDemandasExpanded && (
-            <div className="border-t border-border/60 pt-3 animate-slide-in space-y-2.5">
-              <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Suas tarefas nesta semana:</h3>
-              {minhasDemandas.length === 0 ? (
-                <p className="text-xs text-text-secondary italic">Você não tem demandas atribuídas nesta semana.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                  {minhasDemandas.map(t => {
-                    const dayObj = weekDates.find(d => d.dateStr === t.prazo)
-                    const dayLabel = dayObj ? `${dayObj.label.slice(0, 3)} (${formatDDMM(dayObj.date)})` : 'Fila / Backlog'
-
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => abrirDetalhesTarefa(t)}
-                        className="p-3.5 rounded-xl bg-surface-elevated/40 hover:bg-surface-elevated border border-border/60 hover:border-gold/30 transition-all cursor-pointer flex items-center justify-between gap-3 text-left group"
-                      >
-                        <div>
-                          <span className="text-[9px] text-text-secondary font-bold block mb-0.5 uppercase tracking-wider">
-                            {dayLabel} {t.horario_inicio ? ` - ${t.horario_inicio.slice(0, 5)}` : ''}
-                          </span>
-                          <p className="text-xs font-semibold text-text-primary group-hover:text-gold transition-colors">{t.titulo}</p>
-                          <span className="text-[9px] text-gold font-medium uppercase tracking-wider">
-                            {t.projeto?.cliente?.nome || 'Sem Cliente'}
-                          </span>
-                        </div>
-                        <span className="badge-secondary text-[10px] capitalize shrink-0">{t.status.replace(/_/g, ' ')}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
           )}
+
+          {/* My Demands Card */}
+          <button
+            type="button"
+            onClick={() => setMinhasDemandasExpanded(!minhasDemandasExpanded)}
+            className="flex-1 bg-surface-elevated/40 border border-border/60 rounded-xl p-4 text-left hover:border-gold/30 transition-all duration-150 group flex flex-col justify-between cursor-pointer"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest group-hover:text-gold transition-colors">Minhas Demandas</span>
+              <span className="text-[9px] bg-gold-muted text-gold border border-gold/20 px-1.5 py-0.5 rounded font-bold">
+                {minhasDemandas.length}
+              </span>
+            </div>
+            <p className="font-display text-3xl font-bold text-gold mt-2">
+              {minhasDemandas.length} atribuídas
+            </p>
+            <span className="text-[10px] text-gold font-sans font-medium group-hover:underline mt-1.5">
+              {minhasDemandasExpanded ? '▲ Recolher lista' : '▼ Clique para abrir a lista'}
+            </span>
+          </button>
         </div>
-      )}
+
+        {/* Accordion List */}
+        {minhasDemandasExpanded && (
+          <div className="border-t border-border/60 pt-3 animate-slide-in space-y-2.5">
+            <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Suas tarefas nesta semana:</h3>
+            {minhasDemandas.length === 0 ? (
+              <p className="text-xs text-text-secondary italic">Você não tem demandas atribuídas nesta semana.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
+                {minhasDemandas.map(t => {
+                  const dayObj = weekDates.find(d => d.dateStr === t.prazo)
+                  const dayLabel = dayObj ? `${dayObj.label.slice(0, 3)} (${formatDDMM(dayObj.date)})` : 'Fila / Backlog'
+
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => abrirDetalhesTarefa(t)}
+                      className="p-3.5 rounded-xl bg-surface-elevated/40 hover:bg-surface-elevated border border-border/60 hover:border-gold/30 transition-all cursor-pointer flex items-center justify-between gap-3 text-left group"
+                    >
+                      <div>
+                        <span className="text-[9px] text-text-secondary font-bold block mb-0.5 uppercase tracking-wider">
+                          {dayLabel} {t.horario_inicio ? ` - ${t.horario_inicio.slice(0, 5)}` : ''}
+                        </span>
+                        <p className="text-xs font-semibold text-text-primary group-hover:text-gold transition-colors">{t.titulo}</p>
+                        <span className="text-[9px] text-gold font-medium uppercase tracking-wider">
+                          {t.projeto?.cliente?.nome || 'Sem Cliente'}
+                        </span>
+                      </div>
+                      <span className="badge-secondary text-[10px] capitalize shrink-0">{t.status.replace(/_/g, ' ')}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Week Navigator & Filters */}
       <div className="flex flex-col xl:flex-row gap-4 items-center justify-between bg-surface border border-border p-4 rounded-lg">
@@ -803,13 +818,29 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-text-secondary uppercase">Status</label>
                     <select
                       value={editingTarefa.status}
-                      disabled={!isGestor}
-                      onChange={e => setEditingTarefa({ ...editingTarefa, status: e.target.value as StatusTarefa })}
+                      disabled={!canModifyTask}
+                      onChange={e => {
+                        const newStatus = e.target.value as StatusTarefa
+                        let updatedHorarioConclusao = editingTarefa.horario_conclusao
+                        
+                        if (newStatus === 'concluido' && !updatedHorarioConclusao) {
+                          const now = new Date()
+                          updatedHorarioConclusao = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+                        } else if (newStatus !== 'concluido') {
+                          updatedHorarioConclusao = null
+                        }
+                        
+                        setEditingTarefa({
+                          ...editingTarefa,
+                          status: newStatus,
+                          horario_conclusao: updatedHorarioConclusao
+                        })
+                      }}
                       className="input text-sm"
                     >
                       <option value="a_fazer">A Fazer</option>
@@ -842,8 +873,21 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-text-secondary uppercase">Membro Responsável</label>
+                {editingTarefa.status === 'concluido' && (
+                  <div className="space-y-1 animate-fade-in">
+                    <label className="text-xs font-semibold text-text-secondary uppercase">✅ Horário de Conclusão</label>
+                    <input
+                      type="time"
+                      disabled={!canModifyTask}
+                      required
+                      value={editingTarefa.horario_conclusao || ''}
+                      onChange={e => setEditingTarefa({ ...editingTarefa, horario_conclusao: e.target.value || null })}
+                      className="input text-sm border-gold/40 focus:border-gold"
+                    />
+                  </div>
+                )}
+                 <div className="space-y-1">
+                   <label className="text-xs font-semibold text-text-secondary uppercase">Membro Responsável</label>
                   <select
                     value={editingTarefa.responsavel_id || ''}
                     disabled={!isGestor}
@@ -860,44 +904,34 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
               {/* Form Actions */}
               <div className="flex items-center justify-between pt-6 border-t border-border mt-6">
-                {isGestor ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDemand(editingTarefa.id)}
-                      className="btn-danger flex items-center gap-1.5 text-xs py-1.5 px-3"
-                    >
-                      <Trash2 size={14} />
-                      Excluir
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingTarefa(null)}
-                        className="btn-ghost text-xs py-2 px-4"
-                      >
-                        Fechar
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="btn-primary text-xs py-2 px-4"
-                      >
-                        {loading ? 'Salvando...' : 'Salvar Alterações'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2 ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => setEditingTarefa(null)}
-                      className="btn-primary text-xs py-2 px-6"
-                    >
-                      Fechar
-                    </button>
-                  </div>
+                {isGestor && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDemand(editingTarefa.id)}
+                    className="btn-danger flex items-center gap-1.5 text-xs py-1.5 px-3"
+                  >
+                    <Trash2 size={14} />
+                    Excluir
+                  </button>
                 )}
+                <div className={`flex items-center gap-2 ${!isGestor ? 'ml-auto' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTarefa(null)}
+                    className="btn-ghost text-xs py-2 px-4"
+                  >
+                    Fechar
+                  </button>
+                  {canModifyTask && (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="btn-primary text-xs py-2 px-4"
+                    >
+                      {loading ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
 
