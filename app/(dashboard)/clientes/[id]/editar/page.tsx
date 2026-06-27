@@ -29,6 +29,8 @@ export default async function EditarClientePage({
   if (!cliente) notFound()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
 
   return <EditarClienteForm cliente={cliente} isGestor={isGestor} />
 }

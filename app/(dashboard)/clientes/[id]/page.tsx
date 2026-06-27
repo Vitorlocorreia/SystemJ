@@ -57,6 +57,8 @@ export default async function ClienteDetailPage({
   if (!cliente) notFound()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
 
   // Calculations for KPIs
   const totalProjetos = (projetos?.length ?? 0) + (projetosKanban?.length ?? 0)

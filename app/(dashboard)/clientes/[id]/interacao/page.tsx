@@ -20,5 +20,15 @@ export default async function RegistrarInteracaoPage({
 
   if (!cliente) notFound()
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
+
   return <RegistrarInteracaoForm clienteId={cliente.id} clienteNome={cliente.nome} />
 }

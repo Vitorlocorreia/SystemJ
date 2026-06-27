@@ -24,6 +24,9 @@ export default async function DashboardPage() {
     .single()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isDesign = profile?.role === 'design_grafico'
+  
+  if (isDesign) redirect('/design')
   if (!isGestor) redirect('/semana')
 
 

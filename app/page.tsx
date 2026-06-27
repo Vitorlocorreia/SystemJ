@@ -16,8 +16,11 @@ export default async function Home() {
     .single()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isDesign = profile?.role === 'design_grafico'
   
-  if (isGestor) {
+  if (isDesign) {
+    redirect('/design')
+  } else if (isGestor) {
     redirect('/dashboard')
   } else {
     redirect('/semana')

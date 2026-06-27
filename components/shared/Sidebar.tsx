@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Palette,
+  ClipboardList,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,13 +23,14 @@ import { useProfile } from '@/lib/hooks/useProfile'
 import { cn, getInitials } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, gestorOnly: false, designOnly: false },
-  { href: '/semana', label: 'Semana', icon: Calendar, gestorOnly: false, designOnly: false },
-  { href: '/clientes', label: 'Clientes', icon: Users, gestorOnly: false, designOnly: false },
-  { href: '/projetos', label: 'Projetos', icon: KanbanSquare, gestorOnly: true, designOnly: false },
-  { href: '/equipe', label: 'Equipe', icon: UserCog, gestorOnly: false, designOnly: false },
-  { href: '/design', label: 'Demandas', icon: Palette, gestorOnly: false, designOnly: true },
-  { href: '/configuracoes', label: 'Config', icon: Settings, gestorOnly: false, designOnly: false },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/semana', label: 'Semana', icon: Calendar },
+  { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/projetos', label: 'Projetos', icon: KanbanSquare },
+  { href: '/demandas', label: 'Demandas', icon: ClipboardList },
+  { href: '/equipe', label: 'Equipe', icon: UserCog },
+  { href: '/design', label: 'Demandas', icon: Palette },
+  { href: '/configuracoes', label: 'Config', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -42,13 +44,16 @@ export default function Sidebar() {
   const isDesign = profile?.role === 'design_grafico'
 
   const visibleItems = navItems.filter(item => {
-    if (item.designOnly && !isDesign) return false
-    if (item.gestorOnly && !isGestor) return false
-    if (!isGestor && !isDesign) {
-      // filmmaker / tecnologia: semana + configuracoes
-      return item.href === '/semana' || item.href === '/configuracoes'
+    if (isDesign) {
+      // Design só vê demandas do design (/design) e configurações (/configuracoes)
+      return item.href === '/design' || item.href === '/configuracoes'
     }
-    return true
+    if (isGestor) {
+      // Gestor vê tudo exceto a view específica do design (/design)
+      return item.href !== '/design'
+    }
+    // Outros roles (filmmaker, tecnologia, etc.) só veem Semana e Configurações
+    return item.href === '/semana' || item.href === '/configuracoes'
   })
 
   // Close drawer on route change

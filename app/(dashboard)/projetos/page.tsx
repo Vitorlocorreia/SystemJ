@@ -17,7 +17,8 @@ export default async function ProjetosPage() {
     .single()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
-  if (!isGestor) redirect('/dashboard')
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
 
   const [
     { data: projetos },

@@ -10,6 +10,16 @@ export default async function FinanceiroPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
+
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
 

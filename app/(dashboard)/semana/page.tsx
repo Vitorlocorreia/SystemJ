@@ -35,6 +35,9 @@ export default async function SemanaPage() {
     .single()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isDesign = profile?.role === 'design_grafico'
+
+  if (isDesign) redirect('/design')
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -7,6 +7,16 @@ export default async function NovoLancamentoPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .single()
+
+  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  if (profile?.role === 'design_grafico') redirect('/design')
+  if (!isGestor) redirect('/semana')
+
   // Fetch financial categories, clients, and projects
   const [
     { data: categorias },

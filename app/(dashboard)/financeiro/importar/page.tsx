@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Upload, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useProfile } from '@/lib/hooks/useProfile'
 
 interface Row {
@@ -22,6 +23,19 @@ interface Row {
 
 export default function ImportarPlanilhaPage() {
   const { profile } = useProfile()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (profile) {
+      const isGestor = profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro'
+      if (profile.role === 'design_grafico') {
+        router.push('/design')
+      } else if (!isGestor) {
+        router.push('/semana')
+      }
+    }
+  }, [profile, router])
+
   const [rows, setRows] = useState<Row[]>([])
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload')
   const [importing, setImporting] = useState(false)
