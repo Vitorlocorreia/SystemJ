@@ -12,19 +12,23 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Menu,
+  X,
+  Palette,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/useProfile'
 import { cn, getInitials } from '@/lib/utils'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/semana', label: 'Semana', icon: Calendar },
-  { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/projetos', label: 'Projetos', icon: KanbanSquare, gestorOnly: true },
-  { href: '/equipe', label: 'Equipe', icon: UserCog },
-  { href: '/configuracoes', label: 'Config', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, gestorOnly: false, designOnly: false },
+  { href: '/semana', label: 'Semana', icon: Calendar, gestorOnly: false, designOnly: false },
+  { href: '/clientes', label: 'Clientes', icon: Users, gestorOnly: false, designOnly: false },
+  { href: '/projetos', label: 'Projetos', icon: KanbanSquare, gestorOnly: true, designOnly: false },
+  { href: '/equipe', label: 'Equipe', icon: UserCog, gestorOnly: false, designOnly: false },
+  { href: '/design', label: 'Demandas', icon: Palette, gestorOnly: false, designOnly: true },
+  { href: '/configuracoes', label: 'Config', icon: Settings, gestorOnly: false, designOnly: false },
 ]
 
 export default function Sidebar() {
@@ -32,14 +36,35 @@ export default function Sidebar() {
   const router = useRouter()
   const { profile } = useProfile()
   const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isDesign = profile?.role === 'design_grafico'
+
   const visibleItems = navItems.filter(item => {
-    if (!isGestor) {
+    if (item.designOnly && !isDesign) return false
+    if (item.gestorOnly && !isGestor) return false
+    if (!isGestor && !isDesign) {
+      // filmmaker / tecnologia: semana + configuracoes
       return item.href === '/semana' || item.href === '/configuracoes'
     }
-    return !item.gestorOnly || isGestor
+    return true
   })
+
+  // Close drawer on route change
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  // Lock body scroll when drawer open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [mobileOpen])
 
   async function handleLogout() {
     const supabase = createClient()
@@ -163,38 +188,122 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* ── Mobile Bottom Navigation (< md) ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface border-t border-border flex items-stretch safe-area-inset-bottom">
-        {visibleItems.slice(0, 5).map(({ href, label, icon: Icon }) => {
-          const isActive = href === '/dashboard'
-            ? pathname === '/dashboard'
-            : pathname.startsWith(href)
-
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-[9px] font-semibold uppercase tracking-wide transition-colors duration-150',
-                isActive
-                  ? 'text-gold'
-                  : 'text-text-secondary'
-              )}
-            >
-              <Icon size={20} className={cn(isActive ? 'text-gold' : 'text-text-secondary')} />
-              {label}
-            </Link>
-          )
-        })}
-        {/* Logout button on mobile */}
+      {/* ── Mobile: Fixed Top Header (< md) ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-surface border-b border-border flex items-center justify-between px-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+            <span className="font-display text-black text-sm font-bold leading-none">J.</span>
+          </div>
+          <div>
+            <p className="font-display text-sm font-bold text-text-primary leading-tight">Jota</p>
+          </div>
+        </div>
         <button
-          onClick={handleLogout}
-          className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-[9px] font-semibold uppercase tracking-wide text-text-secondary hover:text-danger transition-colors duration-150"
+          onClick={() => setMobileOpen(true)}
+          className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
+          aria-label="Abrir menu"
         >
-          <LogOut size={20} />
-          Sair
+          <Menu size={22} />
         </button>
-      </nav>
+      </header>
+
+      {/* ── Mobile Drawer Overlay ── */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile Drawer Panel ── */}
+      <div
+        className={cn(
+          'md:hidden fixed top-0 left-0 h-full w-72 z-[70] bg-surface border-r border-border flex flex-col',
+          'transition-transform duration-300 ease-in-out',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        {/* Drawer header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
+              <span className="font-display text-black text-sm font-bold leading-none">J.</span>
+            </div>
+            <p className="font-display text-sm font-bold text-text-primary">Jota Esportivo</p>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
+            aria-label="Fechar menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* User info in drawer */}
+        {profile && (
+          <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
+            <div className="w-10 h-10 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden">
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.nome}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-gold text-sm font-bold">
+                  {getInitials(profile.nome)}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary truncate">{profile.nome}</p>
+              <p className="text-[11px] text-text-secondary truncate capitalize">
+                {profile.role?.replace(/_/g, ' ')}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Nav items */}
+        <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+          {visibleItems.map(({ href, label, icon: Icon }) => {
+            const isActive = href === '/dashboard'
+              ? pathname === '/dashboard'
+              : pathname.startsWith(href)
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-150',
+                  isActive
+                    ? 'text-text-primary bg-surface-elevated border-l-2 border-gold pl-[10px]'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-elevated'
+                )}
+              >
+                <Icon
+                  size={19}
+                  className={cn(isActive ? 'text-gold' : 'text-text-secondary')}
+                />
+                {label}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Drawer footer */}
+        <div className="border-t border-border p-3">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-3 py-3 rounded-lg text-sm text-text-secondary hover:text-danger hover:bg-danger/10 transition-all duration-150"
+          >
+            <LogOut size={18} />
+            Sair da conta
+          </button>
+        </div>
+      </div>
     </>
   )
 }
