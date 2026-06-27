@@ -49,7 +49,7 @@ export default async function DemandasPage() {
   // Buscar todos os projetos (operacionais) com cliente
   const { data: projetos } = await supabase
     .from('projetos')
-    .select('*, cliente:clientes(nome)')
+    .select('*, cliente:clientes(id, nome)')
     .order('nome')
 
   return (

@@ -21,6 +21,7 @@ interface ExtendedTarefa extends Tarefa {
     id: string
     nome: string
     cliente: {
+      id: string
       nome: string
     } | null
   } | null
@@ -29,7 +30,7 @@ interface ExtendedTarefa extends Tarefa {
 interface Props {
   tarefasIniciais: ExtendedTarefa[]
   membros: Profile[]
-  projetos: (Projeto & { cliente: { nome: string } | null })[]
+  projetos: (Projeto & { cliente: { id: string; nome: string } | null })[]
   currentUserId: string
 }
 
@@ -50,8 +51,26 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
-  const [selectedProjeto, setSelectedProjeto] = useState<string>('todos')
+  const [selectedCliente, setSelectedCliente] = useState<string>('todos')
   const [onlyMine, setOnlyMine] = useState(false)
+
+  // Clientes únicos a partir dos projetos ou tarefas
+  const clientes = useMemo(() => {
+    const map = new Map<string, string>()
+    projetos.forEach(p => {
+      if (p.cliente) {
+        map.set(p.cliente.id, p.cliente.nome)
+      }
+    })
+    tarefas.forEach(t => {
+      if (t.projeto?.cliente) {
+        map.set(t.projeto.cliente.id, t.projeto.cliente.nome)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [projetos, tarefas])
 
   // Modals state
   const [editingTarefa, setEditingTarefa] = useState<ExtendedTarefa | null>(null)
@@ -156,14 +175,14 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       const matchMembro = selectedMembro === 'todos' || 
                           t.responsavel_id === selectedMembro ||
                           t.responsavel_ids?.includes(selectedMembro)
-      const matchProjeto = selectedProjeto === 'todos' || t.projeto_id === selectedProjeto
+      const matchCliente = selectedCliente === 'todos' || t.projeto?.cliente?.id === selectedCliente
       const matchMine = !onlyMine || 
                         t.responsavel_id === meuProfileId ||
                         t.responsavel_ids?.includes(meuProfileId || '')
 
-      return matchSearch && matchMembro && matchProjeto && matchMine
+      return matchSearch && matchMembro && matchCliente && matchMine
     })
-  }, [tarefas, searchTerm, selectedMembro, selectedProjeto, onlyMine, currentUserId, membros])
+  }, [tarefas, searchTerm, selectedMembro, selectedCliente, onlyMine, currentUserId, membros])
 
   const getColItems = (status: StatusTarefa) => {
     return filteredTarefas.filter(t => t.status === status).sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
@@ -350,16 +369,16 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
             </select>
           </div>
 
-          {/* Project Filter */}
+          {/* Cliente Filter */}
           <div className="relative">
             <select
-              value={selectedProjeto}
-              onChange={e => setSelectedProjeto(e.target.value)}
+              value={selectedCliente}
+              onChange={e => setSelectedCliente(e.target.value)}
               className="input py-1.5 pr-8 text-sm bg-surface-elevated font-medium"
             >
-              <option value="todos">Projeto: Todos</option>
-              {projetos.map(p => (
-                <option key={p.id} value={p.id}>{p.nome}</option>
+              <option value="todos">Cliente: Todos</option>
+              {clientes.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
           </div>

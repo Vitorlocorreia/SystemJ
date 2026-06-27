@@ -44,7 +44,7 @@ export default async function DesignPage() {
   const projetoIds = [...new Set(tarefas.map((t: any) => t.projeto_id).filter(Boolean))]
   const { data: projetos } = await supabase
     .from('projetos')
-    .select('id, nome, cliente:clientes(nome)')
+    .select('id, nome, cliente:clientes(id, nome)')
     .in('id', projetoIds.length > 0 ? projetoIds : ['00000000-0000-0000-0000-000000000000'])
 
   return (

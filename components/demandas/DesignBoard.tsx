@@ -23,14 +23,17 @@ interface ExtendedTarefa extends Tarefa {
   projeto: {
     id: string
     nome: string
-    cliente: { nome: string } | null
+    cliente: {
+      id: string
+      nome: string
+    } | null
   } | null
 }
 
 interface Props {
   tarefasIniciais: ExtendedTarefa[]
   membros: Profile[]
-  projetos: (Projeto & { cliente: { nome: string } | null })[]
+  projetos: (Projeto & { cliente: { id: string; nome: string } | null })[]
   currentUserId: string
 }
 
@@ -45,20 +48,38 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
 
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedProjeto, setSelectedProjeto] = useState('todos')
+  const [selectedCliente, setSelectedCliente] = useState('todos')
   const [editingTarefa, setEditingTarefa] = useState<ExtendedTarefa | null>(null)
   const [comentarios, setComentarios] = useState<any[]>([])
   const [comentariosLoading, setComentariosLoading] = useState(false)
   const [novoComentario, setNovoComentario] = useState('')
   const [sendingComentario, setSendingComentario] = useState(false)
 
+  // Clientes únicos a partir dos projetos ou tarefas
+  const clientes = useMemo(() => {
+    const map = new Map<string, string>()
+    projetos.forEach(p => {
+      if (p.cliente) {
+        map.set(p.cliente.id, p.cliente.nome)
+      }
+    })
+    tarefas.forEach(t => {
+      if (t.projeto?.cliente) {
+        map.set(t.projeto.cliente.id, t.projeto.cliente.nome)
+      }
+    })
+    return Array.from(map.entries())
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [projetos, tarefas])
+
   const filteredTarefas = useMemo(() => {
     return tarefas.filter(t => {
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchProjeto = selectedProjeto === 'todos' || t.projeto_id === selectedProjeto
-      return matchSearch && matchProjeto
+      const matchCliente = selectedCliente === 'todos' || t.projeto?.cliente?.id === selectedCliente
+      return matchSearch && matchCliente
     })
-  }, [tarefas, searchTerm, selectedProjeto])
+  }, [tarefas, searchTerm, selectedCliente])
 
   const tarefasPorColuna = useMemo(() => {
     const map: Record<StatusTarefa, ExtendedTarefa[]> = {
@@ -173,14 +194,14 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
         </div>
         <div className="relative">
           <select
-            value={selectedProjeto}
-            onChange={e => setSelectedProjeto(e.target.value)}
+            value={selectedCliente}
+            onChange={e => setSelectedCliente(e.target.value)}
             className="input text-sm pr-8 appearance-none min-w-[180px]"
           >
-            <option value="todos">Todos os projetos</option>
-            {projetos.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.nome}{p.cliente ? ` — ${p.cliente.nome}` : ''}
+            <option value="todos">Todos os clientes</option>
+            {clientes.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
               </option>
             ))}
           </select>
