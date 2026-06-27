@@ -35,6 +35,17 @@ export default async function DemandasPage() {
     .select('*')
     .order('nome')
 
+  // Filtrar apenas designers gráficos
+  const designers = (membros || []).filter((m: any) => m.role === 'design_grafico')
+  const designerIds = designers.map((d: any) => d.id)
+
+  // Filtrar tarefas pertencentes ao design (ou sem responsável atribuído)
+  const tarefasDesign = (tarefas || []).filter((t: any) => {
+    const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
+    if (ids.length === 0) return true // Traz demandas sem responsável para que o gestor possa atribuir a um designer
+    return ids.some(id => designerIds.includes(id))
+  })
+
   // Buscar todos os projetos (operacionais) com cliente
   const { data: projetos } = await supabase
     .from('projetos')
@@ -44,8 +55,8 @@ export default async function DemandasPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <GlobalKanbanBoard
-        tarefasIniciais={tarefas || []}
-        membros={membros || []}
+        tarefasIniciais={tarefasDesign}
+        membros={designers}
         projetos={projetos || []}
         currentUserId={user.id}
       />
