@@ -81,10 +81,17 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     })
   }, [membros])
 
+  const [mounted, setMounted] = useState(false)
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [currentWeekMonday, setCurrentWeekMonday] = useState<Date>(() => getMonday(new Date()))
 
   const meuProfile = useMemo(() => membros.find(m => m.user_id === currentUserId), [membros, currentUserId])
+
+  // Forçar semana atual sempre que o componente monta (evita data antiga por SSR)
+  useEffect(() => {
+    setMounted(true)
+    setCurrentWeekMonday(getMonday(new Date()))
+  }, [])
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -189,10 +196,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         t.responsavel_ids?.includes(meuProfile.id)
       )
       if (!isMine) return false
-      
+
       const isBacklog = !t.prazo
       const isInCurrentWeek = weekDates.some(d => d.dateStr === t.prazo)
-      
+
       return isBacklog || isInCurrentWeek
     })
   }, [tarefas, meuProfile, weekDates])
@@ -514,6 +521,14 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     toast.success('Agenda copiada para a área de transferência! Cole no WhatsApp.')
   }
 
+  if (!mounted) {
+    return (
+      <div className="h-96 flex items-center justify-center">
+        <p className="text-text-secondary animate-pulse text-sm">Carregando agenda...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Header and Exporter Action */}
@@ -537,7 +552,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
           )}
           {isGestor && (
             <button
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                setNewPrazo(formatYYYYMMDD(new Date()))
+                setIsCreateOpen(true)
+              }}
               className="btn-primary flex items-center gap-2 text-sm justify-center py-2"
             >
               <Plus size={16} />
@@ -723,7 +741,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                           <div className="px-2.5 py-2 bg-surface-elevated flex flex-col justify-between min-h-[64px]">
                             <div>
                               <span className="text-[9px] text-warning/80 font-bold uppercase tracking-wider block mb-0.5 truncate">
-                                {tarefa.projeto?.cliente?.nome || 'Sem Data'}
+                                {tarefa.projeto?.cliente?.nome || 'Sem Cliente'}
                               </span>
                               <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{tarefa.titulo}</p>
                             </div>
