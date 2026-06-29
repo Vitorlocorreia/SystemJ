@@ -92,6 +92,43 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     setMounted(true)
     setCurrentWeekMonday(getMonday(new Date()))
   }, [])
+
+  // Marcar automaticamente demandas passadas como concluídas
+  useEffect(() => {
+    if (!mounted || tarefas.length === 0) return
+
+    const hojeStr = formatYYYYMMDD(new Date())
+    const tarefasParaConcluir = tarefas.filter(t => 
+      t.prazo && 
+      t.prazo < hojeStr && 
+      t.status !== 'concluido'
+    )
+
+    if (tarefasParaConcluir.length > 0) {
+      const ids = tarefasParaConcluir.map(t => t.id)
+      
+      // Atualizar localmente
+      setTarefas(prev => 
+        prev.map(t => ids.includes(t.id) ? { ...t, status: 'concluido' } : t)
+      )
+
+      // Atualizar no banco
+      const autoConcluirNoBanco = async () => {
+        const supabase = createClient()
+        const { error } = await supabase
+          .from('tarefas')
+          .update({ status: 'concluido' })
+          .in('id', ids)
+
+        if (error) {
+          console.error('Erro ao auto-concluir demandas passadas:', error)
+        } else {
+          toast.success(`${tarefasParaConcluir.length} ${tarefasParaConcluir.length === 1 ? 'demanda antiga foi' : 'demandas antigas foram'} concluída(s) automaticamente por estar fora do prazo.`)
+        }
+      }
+      autoConcluirNoBanco()
+    }
+  }, [mounted])
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
