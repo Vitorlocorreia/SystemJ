@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import DesignBoard from '@/components/demandas/DesignBoard'
 
+// Sempre busca dados frescos
+export const revalidate = 0
+
 export default async function DesignPage() {
   const supabase = (await createClient()) as any
 
@@ -47,6 +50,12 @@ export default async function DesignPage() {
     .select('id, nome, cliente:clientes(id, nome)')
     .in('id', projetoIds.length > 0 ? projetoIds : ['00000000-0000-0000-0000-000000000000'])
 
+  // Buscar todos os clientes disponíveis para criação de demandas
+  const { data: clientes } = await supabase
+    .from('clientes')
+    .select('id, nome, status')
+    .order('nome')
+
   return (
     <div className="space-y-6 animate-fade-in">
       <DesignBoard
@@ -54,6 +63,7 @@ export default async function DesignPage() {
         membros={membros || []}
         projetos={projetos || []}
         currentUserId={user.id}
+        clientesDisponiveis={clientes || []}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -35,6 +35,9 @@ interface Props {
 }
 
 export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, currentUserId }: Props) {
+  // Singleton Supabase client
+  const supabaseRef = useRef(createClient())
+
   const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
     return raw.map(t => {
       const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
@@ -53,6 +56,49 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
   const [selectedCliente, setSelectedCliente] = useState<string>('todos')
   const [onlyMine, setOnlyMine] = useState(false)
+
+  // ─── Supabase Realtime ─────────────────────────────────────────────
+  useEffect(() => {
+    const supabase = supabaseRef.current
+
+    const channel = supabase
+      .channel('global-kanban-tarefas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tarefas' },
+        async (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            const { data } = await supabase
+              .from('tarefas')
+              .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
+              .eq('id', payload.new.id)
+              .single()
+            if (data) {
+              setTarefas(prev => {
+                if (prev.some(t => t.id === data.id)) return prev
+                return [...prev, normalizarTarefas([data])[0]]
+              })
+            }
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            setTarefas(prev =>
+              prev.map(t => {
+                if (t.id !== payload.new.id) return t
+                return normalizarTarefas([{ ...t, ...payload.new }])[0]
+              })
+            )
+          }
+
+          if (payload.eventType === 'DELETE') {
+            setTarefas(prev => prev.filter(t => t.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [normalizarTarefas])
 
   // Clientes únicos a partir dos projetos ou tarefas
   const clientes = useMemo(() => {
@@ -122,7 +168,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     setComentarios([])
     setComentariosLoading(true)
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data, error } = await supabase
       .from('comentarios')
       .select('*, autor:profiles(nome, cargo, role)')
@@ -145,7 +191,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       return
     }
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data, error } = await supabase
       .from('comentarios')
       .insert({
@@ -203,7 +249,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       )
     )
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { error } = await supabase
       .from('tarefas')
       .update({ status: newStatus, ordem: destination.index })
@@ -227,7 +273,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     }
 
     setLoading(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     
     const countInCol = tarefas.filter(t => t.status === newStatus).length
 
@@ -262,7 +308,10 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
       responsavel: resps[0] || null,
     }
 
-    setTarefas(prev => [...prev, extendedNewTarefa])
+    setTarefas(prev => {
+      if (prev.some(t => t.id === extendedNewTarefa.id)) return prev
+      return [...prev, extendedNewTarefa]
+    })
     setIsCreateOpen(false)
     // Clear form
     setNewTitle('')
@@ -278,7 +327,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     if (!editingTarefa) return
 
     setLoading(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
 
     const { error } = await supabase
       .from('tarefas')
@@ -324,7 +373,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
   async function handleDeleteTask(id: string) {
     if (!confirm('Deseja realmente excluir esta demanda?')) return
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { error } = await supabase.from('tarefas').delete().eq('id', id)
 
     if (error) {

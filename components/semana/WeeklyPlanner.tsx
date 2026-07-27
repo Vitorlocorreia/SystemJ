@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -68,6 +68,9 @@ function formatDDMM(date: Date) {
 }
 
 export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, currentUserId, isGestor }: Props) {
+  // Singleton Supabase client — never recreated on re-renders
+  const supabaseRef = useRef(createClient())
+
   const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
     return raw.map(t => {
       const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
@@ -114,7 +117,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
       // Atualizar no banco
       const autoConcluirNoBanco = async () => {
-        const supabase = createClient()
+        const supabase = supabaseRef.current
         const { error } = await supabase
           .from('tarefas')
           .update({ status: 'concluido' })
@@ -129,6 +132,54 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       autoConcluirNoBanco()
     }
   }, [mounted])
+
+  // ─── Supabase Realtime: atualizações ao vivo sem F5 ───────────
+  useEffect(() => {
+    const supabase = supabaseRef.current
+
+    const channel = supabase
+      .channel('weekly-planner-tarefas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tarefas' },
+        async (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            // Busca tarefa completa com joins para ter projeto/cliente/responsáveis
+            const { data } = await supabase
+              .from('tarefas')
+              .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
+              .eq('id', payload.new.id)
+              .single()
+            if (data) {
+              setTarefas(prev => {
+                // Evita duplicata se o optimistic update já inseriu
+                if (prev.some(t => t.id === data.id)) return prev
+                return [...prev, normalizarTarefas([data])[0]]
+              })
+            }
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            setTarefas(prev =>
+              prev.map(t => {
+                if (t.id !== payload.new.id) return t
+                // Mescla os novos campos mantendo joins já carregados
+                return normalizarTarefas([{ ...t, ...payload.new }])[0]
+              })
+            )
+          }
+
+          if (payload.eventType === 'DELETE') {
+            setTarefas(prev => prev.filter(t => t.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [normalizarTarefas])
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
@@ -241,20 +292,36 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     })
   }, [tarefas, meuProfile, weekDates])
 
-  // Get tasks for a specific day — sorted by start time (nulls last)
-  const getTasksForDay = (dateStr: string) => {
-    return filteredTarefas.filter(t => t.prazo === dateStr).sort((a, b) => {
-      if (!a.horario_inicio && !b.horario_inicio) return (a.ordem || 0) - (b.ordem || 0)
-      if (!a.horario_inicio) return 1
-      if (!b.horario_inicio) return -1
-      return a.horario_inicio.localeCompare(b.horario_inicio)
+  // Get tasks for a specific day — sorted by start time (nulls last) — memoized por dia
+  const tasksByDay = useMemo(() => {
+    const map: Record<string, ExtendedTarefa[]> = {}
+    filteredTarefas.forEach(t => {
+      if (!t.prazo) return
+      if (!map[t.prazo]) map[t.prazo] = []
+      map[t.prazo].push(t)
     })
-  }
+    // Ordenar cada dia
+    Object.keys(map).forEach(day => {
+      map[day].sort((a, b) => {
+        if (!a.horario_inicio && !b.horario_inicio) return (a.ordem || 0) - (b.ordem || 0)
+        if (!a.horario_inicio) return 1
+        if (!b.horario_inicio) return -1
+        return a.horario_inicio.localeCompare(b.horario_inicio)
+      })
+    })
+    return map
+  }, [filteredTarefas])
 
-  // Get tasks in the Backlog (unscheduled)
-  const getBacklogTasks = () => {
+  const getTasksForDay = useCallback((dateStr: string): ExtendedTarefa[] => {
+    return tasksByDay[dateStr] || []
+  }, [tasksByDay])
+
+  // Get tasks in the Backlog (unscheduled) — memoized
+  const backlogTasks = useMemo(() => {
     return filteredTarefas.filter(t => !t.prazo).sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
-  }
+  }, [filteredTarefas])
+
+  const getBacklogTasks = useCallback((): ExtendedTarefa[] => backlogTasks, [backlogTasks])
 
   // Load comments
   const abrirDetalhesTarefa = useCallback(async (tarefa: ExtendedTarefa) => {
@@ -263,7 +330,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     setComentariosLoading(true)
     setIsAnnotationsOpen(false)
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data, error } = await supabase
       .from('comentarios')
       .select('*, autor:profiles(nome, cargo, role)')
@@ -275,6 +342,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     }
     setComentariosLoading(false)
   }, [])
+
 
   // Handle Drag & Drop
   const onDragEnd = useCallback(async (result: DropResult) => {
@@ -293,7 +361,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       )
     )
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { error } = await supabase
       .from('tarefas')
       .update({ prazo: newPrazoValue, ordem: destination.index })
@@ -346,7 +414,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     return newProj.id
   }
 
-  // Handle Create Demand
+  // Handle Create Demand — aberto para todos os usuários
   async function handleCreateDemand(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim() || !newClienteId) {
@@ -355,7 +423,13 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     }
 
     setLoading(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
+
+    // Se nenhum responsável selecionado, auto-atribuir ao criador
+    let respIds = newRespIds
+    if (respIds.length === 0 && meuProfile) {
+      respIds = [meuProfile.id]
+    }
 
     const projId = await getOrCreateProjectForClient(supabase, newClienteId)
     if (!projId) {
@@ -370,8 +444,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: 'a_fazer' as StatusTarefa,
-        responsavel_id: newRespIds[0] || null,
-        responsavel_ids: newRespIds,
+        responsavel_id: respIds[0] || null,
+        responsavel_ids: respIds,
         prazo: newPrazo || null,
         horario_inicio: newHorarioInicio || null,
         ordem: 0
@@ -386,15 +460,19 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       return
     }
 
-    const resps = membros.filter(m => newRespIds.includes(m.id))
+    const resps = membros.filter(m => respIds.includes(m.id))
     const extendedNewTarefa: ExtendedTarefa = {
       ...data,
-      responsavel_ids: newRespIds,
+      responsavel_ids: respIds,
       responsaveis: resps,
       responsavel: resps[0] || null,
     }
 
-    setTarefas(prev => [...prev, extendedNewTarefa])
+    setTarefas(prev => {
+      // Evita duplicata (o realtime pode ter chegado antes)
+      if (prev.some(t => t.id === extendedNewTarefa.id)) return prev
+      return [...prev, extendedNewTarefa]
+    })
     setIsCreateOpen(false)
     setNewTitle('')
     setNewDesc('')
@@ -422,7 +500,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     }
 
     setLoading(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
 
     const { error } = await supabase
       .from('tarefas')
@@ -470,7 +548,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     if (!isGestor) return
     if (!confirm('Deseja realmente excluir esta demanda?')) return
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { error } = await supabase.from('tarefas').delete().eq('id', id)
 
     if (error) {
@@ -488,18 +566,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     e.preventDefault()
     if (!novoComentario.trim() || !editingTarefa) return
 
-    const meuProfile = membros.find(m => m.user_id === currentUserId)
-    if (!meuProfile) {
+    const autorProfile = membros.find(m => m.user_id === currentUserId)
+    if (!autorProfile) {
       toast.error('Erro de perfil do usuário logado')
       return
     }
 
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data, error } = await supabase
       .from('comentarios')
       .insert({
         tarefa_id: editingTarefa.id,
-        autor_id: meuProfile.id,
+        autor_id: autorProfile.id,
         conteudo: novoComentario.trim()
       })
       .select('*, autor:profiles(nome, cargo, role)')
@@ -587,35 +665,32 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               <span className="sm:hidden">WhatsApp</span>
             </button>
           )}
-          {isGestor && (
-            <button
-              onClick={() => {
-                setNewPrazo(formatYYYYMMDD(new Date()))
-                setIsCreateOpen(true)
-              }}
-              className="btn-primary flex items-center gap-2 text-sm justify-center py-2"
-            >
-              <Plus size={16} />
-              <span className="hidden sm:inline">Nova Demanda</span>
-              <span className="sm:hidden">Nova</span>
-            </button>
-          )}
+          {/* Botão Nova Demanda — disponível para todos os usuários */}
+          <button
+            onClick={() => {
+              setNewPrazo(formatYYYYMMDD(new Date()))
+              setIsCreateOpen(true)
+            }}
+            className="btn-primary flex items-center gap-2 text-sm justify-center py-2"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Nova Demanda</span>
+            <span className="sm:hidden">Nova</span>
+          </button>
         </div>
       </div>
 
       {/* Mini Dashboard / Minhas Demandas */}
       <div className="bg-surface border border-border rounded-xl p-4 space-y-4 animate-fade-in">
         <div className="flex flex-col sm:flex-row items-stretch gap-4">
-          {/* Total Demands Card */}
-          {isGestor && (
-            <div className="flex-1 bg-surface-elevated/40 border border-border/60 rounded-xl p-4 flex flex-col justify-between">
-              <div>
-                <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Demandas na Semana</p>
-                <p className="font-display text-3xl font-bold text-text-primary mt-2">{filteredTarefas.length} total</p>
-              </div>
-              <p className="text-[10px] text-text-secondary mt-1.5">Cronograma geral da equipe.</p>
+          {/* Total Demands Card — visível para todos */}
+          <div className="flex-1 bg-surface-elevated/40 border border-border/60 rounded-xl p-4 flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Demandas na Semana</p>
+              <p className="font-display text-3xl font-bold text-text-primary mt-2">{filteredTarefas.length} total</p>
             </div>
-          )}
+            <p className="text-[10px] text-text-secondary mt-1.5">Cronograma geral da equipe.</p>
+          </div>
 
           {/* My Demands Card */}
           <button

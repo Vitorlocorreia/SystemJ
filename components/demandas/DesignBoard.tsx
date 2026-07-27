@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
   Calendar, Search, X, MessageSquare, ChevronDown,
-  Clock, CheckCircle2, Circle, Loader2, Send, User
+  Clock, CheckCircle2, Circle, Loader2, Send, Plus
 } from 'lucide-react'
 import { formatDate, getInitials } from '@/lib/utils'
-import type { Tarefa, StatusTarefa, Profile, Projeto } from '@/types'
+import type { Tarefa, StatusTarefa, Profile, Projeto, ClientePublico } from '@/types'
 
 const colunas: { id: StatusTarefa; label: string; accent: string; icon: React.ReactNode }[] = [
   { id: 'a_fazer', label: 'A Fazer', accent: 'border-t-border bg-surface', icon: <Circle size={13} className="text-text-secondary" /> },
@@ -35,9 +35,13 @@ interface Props {
   membros: Profile[]
   projetos: (Projeto & { cliente: { id: string; nome: string } | null })[]
   currentUserId: string
+  clientesDisponiveis?: ClientePublico[]
 }
 
-export default function DesignBoard({ tarefasIniciais, membros, projetos, currentUserId }: Props) {
+export default function DesignBoard({ tarefasIniciais, membros, projetos, currentUserId, clientesDisponiveis = [] }: Props) {
+  // Singleton Supabase client
+  const supabaseRef = useRef(createClient())
+
   const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
     return raw.map(t => {
       const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
@@ -45,6 +49,8 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
       return { ...t, responsavel_ids: ids, responsaveis: resps, responsavel: resps[0] || null }
     })
   }, [membros])
+
+  const meuProfile = useMemo(() => membros.find(m => m.user_id === currentUserId), [membros, currentUserId])
 
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [searchTerm, setSearchTerm] = useState('')
@@ -55,23 +61,74 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
   const [novoComentario, setNovoComentario] = useState('')
   const [sendingComentario, setSendingComentario] = useState(false)
 
-  // Clientes únicos a partir dos projetos ou tarefas
+  // Create demand state
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
+  const [newClienteId, setNewClienteId] = useState(clientesDisponiveis[0]?.id || '')
+  const [newPrazo, setNewPrazo] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // ─── Supabase Realtime ───────────────────────────────────────────
+  useEffect(() => {
+    const supabase = supabaseRef.current
+
+    const channel = supabase
+      .channel('design-board-tarefas')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tarefas' },
+        async (payload: any) => {
+          if (payload.eventType === 'INSERT') {
+            const { data } = await supabase
+              .from('tarefas')
+              .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
+              .eq('id', payload.new.id)
+              .single()
+            if (data) {
+              const normalized = normalizarTarefas([data])[0]
+              // Só adiciona se o designer for responsável pela tarefa
+              const ids = normalized.responsavel_ids || []
+              if (meuProfile && ids.includes(meuProfile.id)) {
+                setTarefas(prev => {
+                  if (prev.some(t => t.id === data.id)) return prev
+                  return [...prev, normalized]
+                })
+              }
+            }
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            setTarefas(prev =>
+              prev.map(t => {
+                if (t.id !== payload.new.id) return t
+                return normalizarTarefas([{ ...t, ...payload.new }])[0]
+              })
+            )
+          }
+
+          if (payload.eventType === 'DELETE') {
+            setTarefas(prev => prev.filter(t => t.id !== payload.old.id))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [normalizarTarefas, meuProfile])
+
+  // Clientes únicos a partir dos projetos, tarefas ou lista disponível
   const clientes = useMemo(() => {
     const map = new Map<string, string>()
-    projetos.forEach(p => {
-      if (p.cliente) {
-        map.set(p.cliente.id, p.cliente.nome)
-      }
-    })
-    tarefas.forEach(t => {
-      if (t.projeto?.cliente) {
-        map.set(t.projeto.cliente.id, t.projeto.cliente.nome)
-      }
-    })
+    projetos.forEach(p => { if (p.cliente) map.set(p.cliente.id, p.cliente.nome) })
+    tarefas.forEach(t => { if (t.projeto?.cliente) map.set(t.projeto.cliente.id, t.projeto.cliente.nome) })
+    clientesDisponiveis.forEach(c => map.set(c.id, c.nome))
     return Array.from(map.entries())
       .map(([id, nome]) => ({ id, nome }))
       .sort((a, b) => a.nome.localeCompare(b.nome))
-  }, [projetos, tarefas])
+  }, [projetos, tarefas, clientesDisponiveis])
 
   const filteredTarefas = useMemo(() => {
     return tarefas.filter(t => {
@@ -94,7 +151,7 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
     if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) return
 
     const newStatus = destination.droppableId as StatusTarefa
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     setTarefas(prev => prev.map(t => t.id === draggableId ? { ...t, status: newStatus } : t))
 
     const { error } = await supabase.from('tarefas').update({ status: newStatus }).eq('id', draggableId)
@@ -110,7 +167,7 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
     setEditingTarefa(tarefa)
     setComentarios([])
     setComentariosLoading(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data } = await supabase
       .from('comentarios')
       .select('*, autor:profiles(nome, avatar_url)')
@@ -123,7 +180,7 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
   async function handleEnviarComentario() {
     if (!novoComentario.trim() || !editingTarefa) return
     setSendingComentario(true)
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { data: profile } = await supabase.from('profiles').select('id').eq('user_id', currentUserId).single()
     const { data, error } = await supabase
       .from('comentarios')
@@ -141,13 +198,90 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
 
   async function handleChangeStatus(novoStatus: StatusTarefa) {
     if (!editingTarefa) return
-    const supabase = createClient()
+    const supabase = supabaseRef.current
     const { error } = await supabase.from('tarefas').update({ status: novoStatus }).eq('id', editingTarefa.id)
     if (!error) {
       setTarefas(prev => prev.map(t => t.id === editingTarefa.id ? { ...t, status: novoStatus } : t))
       setEditingTarefa(prev => prev ? { ...prev, status: novoStatus } : null)
       toast.success('Status atualizado!')
     }
+  }
+
+  // Helper: busca ou cria projeto para o cliente
+  async function getOrCreateProjectForClient(supabase: any, clienteId: string): Promise<string | null> {
+    const { data: proj } = await supabase
+      .from('projetos')
+      .select('id')
+      .eq('cliente_id', clienteId)
+      .limit(1)
+      .maybeSingle()
+
+    if (proj?.id) return proj.id
+
+    const { data: cli } = await supabase.from('clientes').select('nome').eq('id', clienteId).single()
+    const clientName = cli?.nome || 'Cliente'
+
+    const { data: newProj, error } = await supabase
+      .from('projetos')
+      .insert({ nome: `Mesa - ${clientName}`, cliente_id: clienteId, status: 'em_andamento' })
+      .select('id')
+      .single()
+
+    if (error) { console.error('Error creating project', error); return null }
+    return newProj.id
+  }
+
+  // Criar nova demanda
+  async function handleCreateDemand(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newTitle.trim() || !newClienteId) {
+      toast.error('Preencha o título e selecione um cliente')
+      return
+    }
+
+    setLoading(true)
+    const supabase = supabaseRef.current
+
+    // Auto-atribuir ao designer criador
+    const respIds = meuProfile ? [meuProfile.id] : []
+
+    const projId = await getOrCreateProjectForClient(supabase, newClienteId)
+    if (!projId) { setLoading(false); return }
+
+    const { data, error } = await supabase
+      .from('tarefas')
+      .insert({
+        projeto_id: projId,
+        titulo: newTitle.trim(),
+        descricao: newDesc.trim() || null,
+        status: 'a_fazer' as StatusTarefa,
+        responsavel_id: respIds[0] || null,
+        responsavel_ids: respIds,
+        prazo: newPrazo || null,
+        ordem: 0
+      })
+      .select('*, projeto:projetos(id, nome, cliente:clientes(id, nome))')
+      .single()
+
+    setLoading(false)
+
+    if (error) {
+      toast.error('Erro ao criar demanda: ' + error.message)
+      return
+    }
+
+    const resps = membros.filter(m => respIds.includes(m.id))
+    const newTarefa: ExtendedTarefa = { ...data, responsavel_ids: respIds, responsaveis: resps, responsavel: resps[0] || null }
+
+    setTarefas(prev => {
+      if (prev.some(t => t.id === newTarefa.id)) return prev
+      return [...prev, newTarefa]
+    })
+    setIsCreateOpen(false)
+    setNewTitle('')
+    setNewDesc('')
+    setNewPrazo('')
+    toast.success('Demanda criada com sucesso!')
   }
 
   const statusBadge: Record<StatusTarefa, string> = {
@@ -173,6 +307,17 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
             {tarefas.length} tarefa{tarefas.length !== 1 ? 's' : ''} atribuída{tarefas.length !== 1 ? 's' : ''} a você
           </p>
         </div>
+        {/* Botão Nova Demanda — disponível para designers */}
+        <button
+          onClick={() => {
+            setNewClienteId(clientesDisponiveis[0]?.id || clientes[0]?.id || '')
+            setIsCreateOpen(true)
+          }}
+          className="btn-primary flex items-center gap-2 text-sm py-2 px-4 self-start sm:self-auto"
+        >
+          <Plus size={16} />
+          Nova Demanda
+        </button>
       </div>
 
       {/* Filters */}
@@ -434,6 +579,87 @@ export default function DesignBoard({ tarefasIniciais, membros, projetos, curren
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criação de Demanda */}
+      {isCreateOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-surface border border-border w-full max-w-lg rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-surface-elevated sticky top-0">
+              <h2 className="font-display text-lg font-bold text-text-primary">Nova Demanda de Design</h2>
+              <button onClick={() => setIsCreateOpen(false)} className="text-text-secondary hover:text-text-primary">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateDemand} className="p-4 md:p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Título / Job</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Arte para stories — Black Friday"
+                  value={newTitle}
+                  onChange={e => setNewTitle(e.target.value)}
+                  className="input text-sm"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Descrição / Briefing</label>
+                <textarea
+                  rows={3}
+                  value={newDesc}
+                  onChange={e => setNewDesc(e.target.value)}
+                  className="input text-sm resize-none"
+                  placeholder="Detalhes do trabalho a ser feito..."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase text-gold">Cliente Relacionado</label>
+                <select
+                  required
+                  value={newClienteId}
+                  onChange={e => setNewClienteId(e.target.value)}
+                  className="input text-sm border-gold/40 focus:border-gold"
+                >
+                  <option value="">Selecione um cliente...</option>
+                  {[...clientes, ...clientesDisponiveis.filter(c => !clientes.find(cc => cc.id === c.id))].map(c => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-text-secondary uppercase">Prazo</label>
+                <input
+                  type="date"
+                  value={newPrazo}
+                  onChange={e => setNewPrazo(e.target.value)}
+                  className="input text-sm"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="btn-ghost text-xs py-2 px-4"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary text-xs py-2 px-4"
+                >
+                  {loading ? 'Criando...' : 'Criar Demanda'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

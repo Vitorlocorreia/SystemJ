@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import WeeklyPlanner from '@/components/semana/WeeklyPlanner'
 
+// Sempre busca dados frescos do servidor — sem cache stale
+export const revalidate = 0
+
 export default async function SemanaPage() {
   const supabase = (await createClient()) as any
 
@@ -27,7 +30,7 @@ export default async function SemanaPage() {
     .select('id, nome, status')
     .order('nome')
 
-  // Buscar perfil do usuário logado para saber se é gestor
+  // Buscar perfil do usuário logado para saber role
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -37,6 +40,7 @@ export default async function SemanaPage() {
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
 
+  // Designers permanecem em /design, mas podem criar demandas pela agenda semanal se chegarem aqui
   if (isDesign) redirect('/design')
 
   return (
