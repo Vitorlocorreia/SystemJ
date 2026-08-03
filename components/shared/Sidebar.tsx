@@ -45,8 +45,8 @@ export default function Sidebar() {
 
   const visibleItems = navItems.filter(item => {
     if (isDesign) {
-      // Design só vê demandas do design (/design) e configurações (/configuracoes)
-      return item.href === '/design' || item.href === '/configuracoes'
+      // Design vê demandas do design (/design), projetos (/projetos) e configurações (/configuracoes)
+      return item.href === '/design' || item.href === '/projetos' || item.href === '/configuracoes'
     }
     if (isGestor) {
       // Gestor vê tudo exceto a view específica do design (/design)
