@@ -277,6 +277,12 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     
     const countInCol = tarefas.filter(t => t.status === newStatus).length
 
+    // Se nenhum responsável selecionado, auto-atribuir ao designer principal (ex: Jotinha)
+    let respIds = newRespIds
+    if (respIds.length === 0 && membros.length > 0) {
+      respIds = [membros[0].id]
+    }
+
     const { data, error } = await supabase
       .from('tarefas')
       .insert({
@@ -284,8 +290,8 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: newStatus,
-        responsavel_id: newRespIds[0] || null,
-        responsavel_ids: newRespIds,
+        responsavel_id: respIds[0] || null,
+        responsavel_ids: respIds,
         prazo: newPrazo || null,
         ordem: countInCol
       })

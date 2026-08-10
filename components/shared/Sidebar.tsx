@@ -52,8 +52,8 @@ export default function Sidebar() {
       // Gestor vê tudo exceto a view específica do design (/design)
       return item.href !== '/design'
     }
-    // Outros roles (filmmaker, tecnologia, etc.) só veem Semana e Configurações
-    return item.href === '/semana' || item.href === '/configuracoes'
+    // Outros roles (filmmaker, tecnologia, etc.) veem Semana, Demandas e Configurações
+    return item.href === '/semana' || item.href === '/demandas' || item.href === '/configuracoes'
   })
 
   // Close drawer on route change

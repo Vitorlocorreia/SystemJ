@@ -8,16 +8,12 @@ export default async function DemandasPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Buscar perfil do usuário logado
+  // Todos os usuários autenticados podem acessar a página de demandas para adicionar trabalhos ao design
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
     .eq('user_id', user.id)
     .single()
-
-  // Apenas gestores acessam essa página
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
-  if (!isGestor) redirect('/semana')
 
   // Buscar todas as tarefas com projeto e cliente
   const { data: tarefas } = await supabase
