@@ -30,11 +30,20 @@ interface ExtendedTarefa extends Tarefa {
 interface Props {
   tarefasIniciais: ExtendedTarefa[]
   membros: Profile[]
+  todosMembros?: Profile[]
+  currentUserProfile?: Profile | null
   projetos: (Projeto & { cliente: { id: string; nome: string } | null })[]
   currentUserId: string
 }
 
-export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, currentUserId }: Props) {
+export default function GlobalKanbanBoard({
+  tarefasIniciais,
+  membros,
+  todosMembros,
+  currentUserProfile,
+  projetos,
+  currentUserId
+}: Props) {
   // Singleton Supabase client
   const supabaseRef = useRef(createClient())
 
@@ -185,7 +194,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
     e.preventDefault()
     if (!novoComentario.trim() || !editingTarefa) return
 
-    const meuProfile = membros.find(m => m.user_id === currentUserId)
+    const meuProfile = currentUserProfile || (todosMembros || membros).find(m => m.user_id === currentUserId)
     if (!meuProfile) {
       toast.error('Erro de perfil do usuário logado')
       return
@@ -213,7 +222,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
 
   // Filter tasks
   const filteredTarefas = useMemo(() => {
-    const meuProfile = membros.find(m => m.user_id === currentUserId)
+    const meuProfile = currentUserProfile || (todosMembros || membros).find(m => m.user_id === currentUserId)
     const meuProfileId = meuProfile?.id
     return tarefas.filter(t => {
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -228,7 +237,7 @@ export default function GlobalKanbanBoard({ tarefasIniciais, membros, projetos, 
 
       return matchSearch && matchMembro && matchCliente && matchMine
     })
-  }, [tarefas, searchTerm, selectedMembro, selectedCliente, onlyMine, currentUserId, membros])
+  }, [tarefas, searchTerm, selectedMembro, selectedCliente, onlyMine, currentUserId, membros, todosMembros, currentUserProfile])
 
   const getColItems = (status: StatusTarefa) => {
     return filteredTarefas.filter(t => t.status === status).sort((a, b) => (a.ordem || 0) - (b.ordem || 0))

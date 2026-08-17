@@ -655,16 +655,14 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {isGestor && (
-            <button
-              onClick={() => setIsExportOpen(true)}
-              className="btn-secondary flex items-center gap-2 text-sm justify-center py-2"
-            >
-              <Share2 size={16} />
-              <span className="hidden sm:inline">Exportar Semana (WhatsApp)</span>
-              <span className="sm:hidden">WhatsApp</span>
-            </button>
-          )}
+          <button
+            onClick={() => setIsExportOpen(true)}
+            className="btn-secondary flex items-center gap-2 text-sm justify-center py-2"
+          >
+            <Share2 size={16} />
+            <span className="hidden sm:inline">Exportar Semana (WhatsApp)</span>
+            <span className="sm:hidden">WhatsApp</span>
+          </button>
           {/* Botão Nova Demanda — disponível para todos os usuários */}
           <button
             onClick={() => {
@@ -790,9 +788,11 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             onChange={e => setSelectedMembro(e.target.value)}
             className="input py-1 pr-8 text-xs bg-surface-elevated font-medium"
           >
-            <option value="todos">Membro: Todos</option>
+            <option value="todos">Membro: Todos (Agenda Geral)</option>
             {membros.map(m => (
-              <option key={m.id} value={m.id}>{m.nome}</option>
+              <option key={m.id} value={m.id}>
+                {m.nome} {m.cargo ? `• ${m.cargo}` : m.role ? `• ${m.role.replace(/_/g, ' ')}` : ''}
+              </option>
             ))}
           </select>
 

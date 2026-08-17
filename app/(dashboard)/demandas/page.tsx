@@ -8,10 +8,10 @@ export default async function DemandasPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Todos os usuários autenticados podem acessar a página de demandas para adicionar trabalhos ao design
+  // Buscar perfil completo do usuário logado
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('*')
     .eq('user_id', user.id)
     .single()
 
@@ -53,6 +53,8 @@ export default async function DemandasPage() {
       <GlobalKanbanBoard
         tarefasIniciais={tarefasDesign}
         membros={designers}
+        todosMembros={membros || []}
+        currentUserProfile={profile}
         projetos={projetos || []}
         currentUserId={user.id}
       />
