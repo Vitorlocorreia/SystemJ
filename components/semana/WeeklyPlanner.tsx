@@ -237,13 +237,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   // Export state
   const [exportMembro, setExportMembro] = useState<string>('todos')
 
-  // Computed permissions (must be after editingTarefa declaration)
-  const isResponsavel = !!(editingTarefa && meuProfile && (
-    editingTarefa.responsavel_id === meuProfile.id ||
-    editingTarefa.responsavel_ids?.includes(meuProfile.id)
-  ))
-  const canModifyTask = isGestor || isResponsavel
-
   // Calculate dates of current week
   const weekDates = useMemo(() => {
     return DIAS_SEMANA.map(d => {
@@ -344,9 +337,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   }, [])
 
 
-  // Handle Drag & Drop
+  // Handle Drag & Drop — aberto para todos da equipe
   const onDragEnd = useCallback(async (result: DropResult) => {
-    if (!isGestor) return
     const { source, destination, draggableId } = result
     if (!destination) return
     if (source.droppableId === destination.droppableId && source.index === destination.index) return
@@ -373,7 +365,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     } else {
       toast.success('Agenda atualizada!')
     }
-  }, [tarefasIniciais, isGestor])
+  }, [tarefasIniciais])
 
   // Helper to get or create project for client
   async function getOrCreateProjectForClient(supabase: any, clienteId: string): Promise<string | null> {
@@ -483,21 +475,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   }
 
 
-  // Handle Update Demand
+  // Handle Update Demand — aberto para todos da equipe (filmmakers, gestores, designers)
   async function handleUpdateDemand(e: React.FormEvent) {
     e.preventDefault()
     if (!editingTarefa) return
-
-    const isResponsavel = meuProfile && (
-      editingTarefa.responsavel_id === meuProfile.id ||
-      editingTarefa.responsavel_ids?.includes(meuProfile.id)
-    )
-    const canModify = isGestor || isResponsavel
-
-    if (!canModify) {
-      toast.error('Você não tem permissão para alterar esta demanda.')
-      return
-    }
 
     setLoading(true)
     const supabase = supabaseRef.current
@@ -838,7 +819,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   }`}
                 >
                   {getBacklogTasks().map((tarefa, index) => (
-                    <Draggable key={tarefa.id} draggableId={tarefa.id} index={index} isDragDisabled={!isGestor}>
+                    <Draggable key={tarefa.id} draggableId={tarefa.id} index={index}>
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
@@ -953,7 +934,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                         }`}
                       >
                         {dayTasks.map((tarefa, index) => (
-                          <Draggable key={tarefa.id} draggableId={tarefa.id} index={index} isDragDisabled={!isGestor}>
+                          <Draggable key={tarefa.id} draggableId={tarefa.id} index={index}>
                             {(provided, snapshot) => (
                               <div
                                 ref={provided.innerRef}
@@ -1098,7 +1079,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                     <label className="text-xs font-semibold text-text-secondary uppercase">Status</label>
                     <select
                       value={editingTarefa.status}
-                      disabled={!canModifyTask}
                       onChange={e => {
                         const newStatus = e.target.value as StatusTarefa
                         let updatedHorarioConclusao = editingTarefa.horario_conclusao
@@ -1128,7 +1108,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                     <label className="text-xs font-semibold text-text-secondary uppercase">Data Programada</label>
                     <input
                       type="date"
-                      disabled={!isGestor}
                       value={editingTarefa.prazo || ''}
                       onChange={e => setEditingTarefa({ ...editingTarefa, prazo: e.target.value || null })}
                       className="input text-sm"
@@ -1140,7 +1119,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   <label className="text-xs font-semibold text-text-secondary uppercase">⏰ Horário de Início</label>
                   <input
                     type="time"
-                    disabled={!isGestor}
                     value={editingTarefa.horario_inicio || ''}
                     onChange={e => setEditingTarefa({ ...editingTarefa, horario_inicio: e.target.value || null })}
                     className="input text-sm"
@@ -1153,7 +1131,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                     <label className="text-xs font-semibold text-text-secondary uppercase">✅ Horário de Conclusão</label>
                     <input
                       type="time"
-                      disabled={!canModifyTask}
                       required
                       value={editingTarefa.horario_conclusao || ''}
                       onChange={e => setEditingTarefa({ ...editingTarefa, horario_conclusao: e.target.value || null })}
@@ -1216,15 +1193,13 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   >
                     Fechar
                   </button>
-                  {canModifyTask && (
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn-primary text-xs py-2 px-4"
-                    >
-                      {loading ? 'Salvando...' : 'Salvar Alterações'}
-                    </button>
-                  )}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn-primary text-xs py-2 px-4"
+                  >
+                    {loading ? 'Salvando...' : 'Salvar Alterações'}
+                  </button>
                 </div>
               </div>
             </form>
