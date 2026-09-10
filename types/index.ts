@@ -10,6 +10,7 @@ export type StatusProjeto = 'planejamento' | 'em_andamento' | 'concluido' | 'can
 export type StatusTarefa = 'a_fazer' | 'em_andamento' | 'concluido'
 export type TipoLancamento = 'receita' | 'despesa'
 export type EmpresaGrupo = 'jota_esportivo' | 'jota_tech' | 'holding'
+export type StatusCobranca = 'pendente' | 'parcial' | 'pago' | 'atrasado'
 
 export interface Profile {
   id: string
@@ -30,6 +31,10 @@ export interface Cliente {
   segmento: string | null
   status: StatusCliente
   valor_contrato: number | null
+  data_inicio_contrato?: string | null
+  data_fim_contrato?: string | null
+  dia_vencimento?: number | null
+  forma_pagamento?: string | null
   empresa?: EmpresaGrupo | string
   criado_por: string | null
   created_at: string
@@ -43,6 +48,10 @@ export interface ClientePublico {
   segmento: string | null
   status: StatusCliente
   valor_contrato?: number | null
+  data_inicio_contrato?: string | null
+  data_fim_contrato?: string | null
+  dia_vencimento?: number | null
+  forma_pagamento?: string | null
   empresa?: EmpresaGrupo | string
   created_at: string
 }
@@ -114,11 +123,32 @@ export interface Lancamento {
   data_lancamento: string
   comprovante_url: string | null
   empresa?: EmpresaGrupo | string
+  is_recorrente?: boolean
+  frequencia?: string | null
+  status?: 'pago' | 'pendente' | 'cancelado'
+  data_vencimento?: string | null
+  data_pagamento?: string | null
+  cobranca_id?: string | null
   criado_por: string | null
   created_at: string
   categoria?: CategoriaFinanceiro | null
   cliente?: ClientePublico | null
   projeto?: Projeto | null
+}
+
+export interface Cobranca {
+  id: string
+  cliente_id: string
+  empresa: EmpresaGrupo | string
+  mes_referencia: string // YYYY-MM-DD
+  valor_total: number
+  valor_pago: number
+  status: StatusCobranca
+  data_vencimento: string
+  data_pagamento: string | null
+  observacao: string | null
+  criado_em?: string
+  cliente?: ClientePublico | null
 }
 
 // ─── Supabase Database Types ──────────────────────────────────
@@ -135,6 +165,7 @@ export type Database = {
       comentarios: { Row: Comentario; Insert: Omit<Comentario, 'id' | 'created_at'>; Update: Partial<Comentario> }
       categorias_financeiro: { Row: CategoriaFinanceiro; Insert: Omit<CategoriaFinanceiro, 'id'>; Update: Partial<CategoriaFinanceiro> }
       lancamentos: { Row: Lancamento; Insert: Omit<Lancamento, 'id' | 'created_at'>; Update: Partial<Lancamento> }
+      cobrancas: { Row: Cobranca; Insert: Omit<Cobranca, 'id'>; Update: Partial<Cobranca> }
     }
     Views: {
       clientes_publico: { Row: ClientePublico }

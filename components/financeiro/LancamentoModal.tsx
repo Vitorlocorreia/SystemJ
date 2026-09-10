@@ -39,6 +39,7 @@ export default function LancamentoModal({
   const [empresa, setEmpresa] = useState<EmpresaGrupo>(defaultEmpresa)
   const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().split('T')[0])
   const [comprovanteUrl, setComprovanteUrl] = useState('')
+  const [isRecorrente, setIsRecorrente] = useState(false)
 
   useEffect(() => {
     if (lancamentoParaEditar) {
@@ -51,6 +52,7 @@ export default function LancamentoModal({
       setEmpresa((lancamentoParaEditar.empresa as EmpresaGrupo) || defaultEmpresa)
       setDataLancamento(lancamentoParaEditar.data_lancamento)
       setComprovanteUrl(lancamentoParaEditar.comprovante_url || '')
+      setIsRecorrente(Boolean(lancamentoParaEditar.is_recorrente))
     } else {
       setTipo('receita')
       setDescricao('')
@@ -61,6 +63,7 @@ export default function LancamentoModal({
       setEmpresa(defaultEmpresa)
       setDataLancamento(new Date().toISOString().split('T')[0])
       setComprovanteUrl('')
+      setIsRecorrente(false)
     }
   }, [lancamentoParaEditar, isOpen, defaultEmpresa])
 
@@ -96,6 +99,7 @@ export default function LancamentoModal({
         empresa,
         data_lancamento: dataLancamento,
         comprovante_url: comprovanteUrl.trim() || null,
+        is_recorrente: tipo === 'despesa' ? isRecorrente : false,
       }
 
       if (lancamentoParaEditar) {
@@ -350,6 +354,26 @@ export default function LancamentoModal({
               className="input text-xs font-mono"
             />
           </div>
+
+          {/* Despesa Recorrente / Custo Fixo */}
+          {tipo === 'despesa' && (
+            <div className="p-3 bg-surface-elevated rounded-lg border border-border">
+              <label className="flex items-center gap-2 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={isRecorrente}
+                  onChange={e => setIsRecorrente(e.target.checked)}
+                  className="checkbox"
+                />
+                <span className="text-text-primary font-medium">
+                  Despesa Fixa / Recorrente Mensal
+                </span>
+              </label>
+              <p className="text-[10px] text-text-secondary mt-1 pl-6">
+                Marque se este for um custo mensal fixo (salário, internet, ferramentas como Adobe/AWS). Ele será incluído na linha base da Previsão Financeira.
+              </p>
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">

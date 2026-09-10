@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FinanceiroClientView from '@/components/financeiro/FinanceiroClientView'
-import type { Lancamento, CategoriaFinanceiro, Cliente, Projeto } from '@/types'
+import type { Lancamento, CategoriaFinanceiro, Cliente, Projeto, Cobranca } from '@/types'
 
 export const revalidate = 0
 
@@ -25,7 +25,8 @@ export default async function FinanceiroPage() {
     { data: lancamentos },
     { data: categorias },
     { data: clientes },
-    { data: projetos }
+    { data: projetos },
+    { data: cobrancas }
   ] = await Promise.all([
     supabase
       .from('lancamentos')
@@ -38,12 +39,16 @@ export default async function FinanceiroPage() {
       .order('nome'),
     supabase
       .from('clientes')
-      .select('id, nome, cnpj_cpf, email, telefone, segmento, status, valor_contrato, empresa, created_at')
+      .select('id, nome, cnpj_cpf, email, telefone, segmento, status, valor_contrato, data_inicio_contrato, data_fim_contrato, dia_vencimento, forma_pagamento, empresa, created_at')
       .order('nome'),
     supabase
       .from('projetos')
       .select('id, nome, cliente_id, responsavel_id, status, prazo, descricao, empresa, created_at')
-      .order('nome')
+      .order('nome'),
+    supabase
+      .from('cobrancas')
+      .select('*, cliente:clientes(id, nome, empresa, valor_contrato, data_inicio_contrato, data_fim_contrato, dia_vencimento)')
+      .order('data_vencimento', { ascending: false })
   ])
 
   return (
@@ -61,6 +66,7 @@ export default async function FinanceiroPage() {
         categoriasIniciais={(categorias as CategoriaFinanceiro[]) || []}
         clientesIniciais={(clientes as Cliente[]) || []}
         projetosIniciais={(projetos as Projeto[]) || []}
+        cobrancasIniciais={(cobrancas as Cobranca[]) || []}
         currentUserId={user.id}
       />
     </div>

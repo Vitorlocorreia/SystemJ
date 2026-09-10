@@ -23,7 +23,7 @@ import {
   FileText
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import type { Lancamento, CategoriaFinanceiro, Cliente, ClientePublico, Projeto, EmpresaGrupo } from '@/types'
+import type { Lancamento, CategoriaFinanceiro, Cliente, ClientePublico, Projeto, EmpresaGrupo, Cobranca } from '@/types'
 
 import FinanceiroGraficos from './FinanceiroGraficos'
 import FinanceiroContratos from './FinanceiroContratos'
@@ -37,6 +37,7 @@ interface FinanceiroClientViewProps {
   categoriasIniciais: CategoriaFinanceiro[]
   clientesIniciais: Cliente[]
   projetosIniciais: Projeto[]
+  cobrancasIniciais?: Cobranca[]
   currentUserId: string
 }
 
@@ -48,12 +49,14 @@ export default function FinanceiroClientView({
   categoriasIniciais,
   clientesIniciais,
   projetosIniciais,
+  cobrancasIniciais = [],
   currentUserId
 }: FinanceiroClientViewProps) {
   // Estado principal
   const [lancamentos, setLancamentos] = useState<Lancamento[]>(lancamentosIniciais)
   const [categorias, setCategorias] = useState<CategoriaFinanceiro[]>(categoriasIniciais)
   const [clientes, setClientes] = useState<Cliente[]>(clientesIniciais)
+  const [cobrancas, setCobrancas] = useState<Cobranca[]>(cobrancasIniciais)
   const [projetos] = useState<Projeto[]>(projetosIniciais)
 
   // Abas e Filtros da Holding
@@ -612,8 +615,12 @@ export default function FinanceiroClientView({
         <FinanceiroContratos
           clientes={clientes}
           projetos={projetos}
+          cobrancas={cobrancas}
           filtroEmpresaGlobal={empresaFiltro}
+          currentUserId={currentUserId}
           onClientesChange={setClientes}
+          onCobrancasChange={setCobrancas}
+          onLancamentoCreated={(l) => setLancamentos(prev => [l, ...prev])}
         />
       )}
 

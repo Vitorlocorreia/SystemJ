@@ -2,15 +2,18 @@
 
 import { useMemo, useState } from 'react'
 import {
-  TrendingUp,
   Calendar,
   DollarSign,
   Building2,
-  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowDownRight,
   ArrowUpRight,
   ShieldCheck,
-  Target,
-  Zap
+  Users,
+  ChevronRight,
+  HelpCircle,
+  FileCheck
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -33,15 +36,20 @@ interface FinanceiroPrevisaoProps {
 }
 
 const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const FULL_MONTH_NAMES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+]
 
 export default function FinanceiroPrevisao({
   clientes,
   lancamentos,
   filtroEmpresaGlobal
 }: FinanceiroPrevisaoProps) {
-  const [cenario, setCenario] = useState<'conservador' | 'realista' | 'otimista'>('realista')
+  const [horizonteMeses, setHorizonteMeses] = useState<3 | 6 | 12>(6)
+  const [mesSelecionadoDetalhe, setMesSelecionadoDetalhe] = useState<number>(1) // 1 = próximo mês
 
-  // Clientes filtrados por empresa
+  // Clientes filtrados pela empresa global
   const clientesFiltrados = useMemo(() => {
     return clientes.filter(c => {
       const emp = c.empresa || 'jota_esportivo'
@@ -49,7 +57,7 @@ export default function FinanceiroPrevisao({
     })
   }, [clientes, filtroEmpresaGlobal])
 
-  // Lançamentos filtrados por empresa
+  // Lançamentos filtrados pela empresa global
   const lancamentosFiltrados = useMemo(() => {
     return lancamentos.filter(l => {
       const emp = l.empresa || 'jota_esportivo'
@@ -57,148 +65,123 @@ export default function FinanceiroPrevisao({
     })
   }, [lancamentos, filtroEmpresaGlobal])
 
-  // Métricas do Motor de Previsão
-  const forecastMetrics = useMemo(() => {
-    // 1. Receita Recorrente dos Contratos Ativos (MRR)
-    const mrrGarantido = clientesFiltrados
-      .filter(c => c.status === 'ativo')
-      .reduce((sum, c) => sum + (c.valor_contrato || 0), 0)
+  // Base de Despesas Recorrentes / Fixas Mensais
+  const despesaFixaMensal = useMemo(() => {
+    // 1. Somar despesas marcadas explicitamente como recorrentes
+    const recorrentes = lancamentosFiltrados
+      .filter(l => l.tipo === 'despesa' && l.is_recorrente)
+      .reduce((sum, l) => sum + l.valor, 0)
 
-    // 2. Potencial de Prospectos
-    const pipelineProspectos = clientesFiltrados
-      .filter(c => c.status === 'prospecto')
-      .reduce((sum, c) => sum + (c.valor_contrato || 0), 0)
+    if (recorrentes > 0) return recorrentes
 
-    // 3. Média Histórica de Despesas Mensais (últimos 3 meses com lançamentos)
-    const despesasTotais = lancamentosFiltrados
+    // 2. Se não houver marcadas ainda, calcular a média real dos meses com lançamentos
+    const totalDespesas = lancamentosFiltrados
       .filter(l => l.tipo === 'despesa')
       .reduce((sum, l) => sum + l.valor, 0)
 
-    // Número de meses distintos com lançamentos ou mínimo 1
-    const mesesComDados = new Set(
-      lancamentosFiltrados.map(l => l.data_lancamento?.slice(0, 7)).filter(Boolean)
+    const mesesDistintos = new Set(
+      lancamentosFiltrados
+        .filter(l => l.tipo === 'despesa')
+        .map(l => l.data_lancamento?.slice(0, 7))
+        .filter(Boolean)
     ).size || 1
 
-    const despesaMediaMensal = despesasTotais > 0 ? despesasTotais / mesesComDados : 12000
+    return totalDespesas > 0 ? totalDespesas / mesesDistintos : 8500
+  }, [lancamentosFiltrados])
 
-    // 4. Média Histórica de Receitas Extras (avulsas além do MRR)
-    const receitasTotais = lancamentosFiltrados
-      .filter(l => l.tipo === 'receita')
-      .reduce((sum, l) => sum + l.valor, 0)
-    
-    const receitaMediaMensal = receitasTotais > 0 ? receitasTotais / mesesComDados : mrrGarantido
-    const extraJobsMedio = Math.max(0, receitaMediaMensal - mrrGarantido)
-
-    // Fatores de ajuste por cenário
-    let fatorExtra = 0
-    let fatorProspecto = 0
-
-    if (cenario === 'conservador') {
-      fatorExtra = 0 // Só o contrato garantido
-      fatorProspecto = 0
-    } else if (cenario === 'realista') {
-      fatorExtra = extraJobsMedio // Contratos + média de produções extras
-      fatorProspecto = pipelineProspectos * 0.25 // 25% de conversão de prospectos
-    } else {
-      fatorExtra = extraJobsMedio * 1.3 // 30% a mais de jobs
-      fatorProspecto = pipelineProspectos * 0.6 // 60% de conversão
-    }
-
-    const receitaMensalProjetada = mrrGarantido + fatorExtra + fatorProspecto
-    const lucroMensalProjetado = receitaMensalProjetada - despesaMediaMensal
-
-    // Previsão 1 Mês (Próximo Mês)
-    const prev1Mes = {
-      receita: receitaMensalProjetada,
-      despesa: despesaMediaMensal,
-      lucro: lucroMensalProjetado,
-      margem: receitaMensalProjetada > 0 ? (lucroMensalProjetado / receitaMensalProjetada) * 100 : 0
-    }
-
-    // Previsão 3 Meses (Trimestre)
-    const prev3Meses = {
-      receita: receitaMensalProjetada * 3,
-      despesa: despesaMediaMensal * 3,
-      lucro: lucroMensalProjetado * 3
-    }
-
-    // Previsão 6 Meses (Semestre)
-    const prev6Meses = {
-      receita: receitaMensalProjetada * 6,
-      despesa: despesaMediaMensal * 6,
-      lucro: lucroMensalProjetado * 6
-    }
-
-    return {
-      mrrGarantido,
-      pipelineProspectos,
-      despesaMediaMensal,
-      receitaMensalProjetada,
-      prev1Mes,
-      prev3Meses,
-      prev6Meses
-    }
-  }, [clientesFiltrados, lancamentosFiltrados, cenario])
-
-  // Série temporal para o Gráfico: 3 meses passados realizados + 4 meses futuros projetados
-  const chartData = useMemo(() => {
-    const data: any[] = []
+  // Cálculo Determinístico Mês a Mês baseado estritamente na Vigência dos Contratos
+  const projecaoMeses = useMemo(() => {
+    const meses = []
     const now = new Date()
 
-    // 3 meses passados
-    for (let i = 3; i >= 1; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      const label = `${MONTH_NAMES[d.getMonth()]}/${String(d.getFullYear()).slice(-2)}`
+    for (let i = 0; i <= horizonteMeses; i++) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      const targetYear = targetDate.getFullYear()
+      const targetMonth = targetDate.getMonth()
 
-      const rec = lancamentosFiltrados
-        .filter(l => l.tipo === 'receita' && l.data_lancamento?.startsWith(key))
+      const inicioDoMesStr = new Date(targetYear, targetMonth, 1).toISOString().slice(0, 10)
+      const fimDoMesStr = new Date(targetYear, targetMonth + 1, 0).toISOString().slice(0, 10)
+      const mesChave = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`
+
+      // 1. Contratos Ativos que estão VIGENTES neste mês específico
+      const contratosVigentes = clientesFiltrados.filter(c => {
+        if (c.status !== 'ativo' || !c.valor_contrato || c.valor_contrato <= 0) return false
+
+        // Não iniciou ainda
+        if (c.data_inicio_contrato && c.data_inicio_contrato > fimDoMesStr) return false
+
+        // Já encerrou antes deste mês
+        if (c.data_fim_contrato && c.data_fim_contrato < inicioDoMesStr) return false
+
+        return true
+      })
+
+      // Receita Contratada Real Garantida
+      const receitaContratada = contratosVigentes.reduce((sum, c) => sum + (c.valor_contrato || 0), 0)
+
+      // 2. Contratos que ACABAM / EXPIRAM exatamente neste mês
+      const contratosExpirandoNoMes = contratosVigentes.filter(c => {
+        if (!c.data_fim_contrato) return false
+        return c.data_fim_contrato >= inicioDoMesStr && c.data_fim_contrato <= fimDoMesStr
+      })
+
+      const valorEmRiscoExpiracao = contratosExpirandoNoMes.reduce(
+        (sum, c) => sum + (c.valor_contrato || 0),
+        0
+      )
+
+      // 3. Despesas Fixas + Despesas agendadas no caixa para este mês futuro
+      const despesasAgendadasNoMes = lancamentosFiltrados
+        .filter(l => l.tipo === 'despesa' && l.data_lancamento?.startsWith(mesChave))
         .reduce((sum, l) => sum + l.valor, 0)
 
-      const desp = lancamentosFiltrados
-        .filter(l => l.tipo === 'despesa' && l.data_lancamento?.startsWith(key))
-        .reduce((sum, l) => sum + l.valor, 0)
+      const despesaTotalProjetada = Math.max(despesaFixaMensal, despesasAgendadasNoMes)
+      const lucroLiquidoProjetado = receitaContratada - despesaTotalProjetada
+      const margemOperacional = receitaContratada > 0 ? (lucroLiquidoProjetado / receitaContratada) * 100 : 0
 
-      data.push({
-        label,
-        tipo: 'realizado',
-        'Receita Realizada': rec || forecastMetrics.mrrGarantido,
-        'Despesa Realizada': desp || forecastMetrics.despesaMediaMensal,
-        'Lucro Realizado': (rec || forecastMetrics.mrrGarantido) - (desp || forecastMetrics.despesaMediaMensal),
+      meses.push({
+        index: i,
+        isAtual: i === 0,
+        labelCurto: `${MONTH_NAMES[targetMonth]}/${String(targetYear).slice(-2)}`,
+        labelCompleto: `${FULL_MONTH_NAMES[targetMonth]} de ${targetYear}`,
+        mesChave,
+        contratosVigentes,
+        contratosExpirandoNoMes,
+        valorEmRiscoExpiracao,
+        receitaContratada,
+        despesaTotalProjetada,
+        lucroLiquidoProjetado,
+        margemOperacional
       })
     }
 
-    // Mês Atual (híbrido)
-    const currentMonthLabel = `${MONTH_NAMES[now.getMonth()]}/${String(now.getFullYear()).slice(-2)} (Atual)`
-    data.push({
-      label: currentMonthLabel,
-      tipo: 'atual',
-      'Receita Realizada': forecastMetrics.mrrGarantido,
-      'Despesa Realizada': forecastMetrics.despesaMediaMensal,
-      'Lucro Realizado': forecastMetrics.mrrGarantido - forecastMetrics.despesaMediaMensal,
-    })
+    return meses
+  }, [clientesFiltrados, lancamentosFiltrados, horizonteMeses, despesaFixaMensal])
 
-    // 3 meses futuros projetados
-    for (let i = 1; i <= 3; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
-      const label = `${MONTH_NAMES[d.getMonth()]}/${String(d.getFullYear()).slice(-2)} (Prev)`
+  // Detalhe do mês em foco
+  const mesEmFoco = useMemo(() => {
+    return projecaoMeses[mesSelecionadoDetalhe] || projecaoMeses[1] || projecaoMeses[0]
+  }, [projecaoMeses, mesSelecionadoDetalhe])
 
-      data.push({
-        label,
-        tipo: 'projetado',
-        'Receita Projetada': forecastMetrics.receitaMensalProjetada,
-        'Despesa Projetada': forecastMetrics.despesaMediaMensal,
-        'Lucro Projetado': forecastMetrics.prev1Mes.lucro,
-      })
-    }
+  // Dados para o Gráfico Recharts
+  const chartData = useMemo(() => {
+    return projecaoMeses.map(m => ({
+      label: m.isAtual ? `${m.labelCurto} (Atual)` : m.labelCurto,
+      'Receita Contratada': m.receitaContratada,
+      'Custos Fixos': m.despesaTotalProjetada,
+      'Lucro Projetado': m.lucroLiquidoProjetado
+    }))
+  }, [projecaoMeses])
 
-    return data
-  }, [lancamentosFiltrados, forecastMetrics])
+  const mesAtual = projecaoMeses[0]
+  const proximoMes = projecaoMeses[1]
+  const em3Meses = projecaoMeses[3] || projecaoMeses[projecaoMeses.length - 1]
+  const em6Meses = projecaoMeses[6] || projecaoMeses[projecaoMeses.length - 1]
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-surface border border-border p-3 rounded-lg shadow-xl text-xs space-y-1.5">
+        <div className="bg-surface border border-border p-3 rounded-lg shadow-xl text-xs space-y-1.5 min-w-[200px]">
           <p className="font-bold text-text-primary border-b border-border pb-1">{label}</p>
           {payload.map((entry: any, index: number) => (
             <div key={index} className="flex items-center justify-between gap-4">
@@ -219,127 +202,139 @@ export default function FinanceiroPrevisao({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Barra Superior de Cenários de Previsão */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface border border-border p-4 rounded-xl">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-gold-muted text-gold border border-gold/20">
-            <Sparkles size={18} />
+      {/* Header Informativo da Previsão Baseada em Contratos */}
+      <div className="bg-surface border border-border p-4 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <FileCheck size={20} />
           </div>
           <div>
-            <h3 className="font-display text-sm font-bold text-text-primary">Motor de Previsão & Projeção Financeira</h3>
-            <p className="text-xs text-text-secondary">Simulação de receitas, despesas e lucro futuro para o Grupo Jota</p>
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-sm font-bold text-text-primary">
+                Previsão Financeira Determinística por Contratos
+              </h3>
+              <span className="badge border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                100% Baseado em Vigência Real
+              </span>
+            </div>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Cálculo exato da receita mês a mês considerando as datas de início e término de cada cliente assinado.
+            </p>
           </div>
         </div>
 
-        {/* Seletor de Cenário */}
-        <div className="flex items-center p-1 bg-surface-elevated rounded-lg border border-border">
+        {/* Seletor de Horizonte Temporal */}
+        <div className="flex items-center p-1 bg-surface-elevated rounded-lg border border-border text-xs">
           <button
-            onClick={() => setCenario('conservador')}
-            className={`py-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              cenario === 'conservador'
-                ? 'bg-surface text-text-primary shadow-sm border border-border'
-                : 'text-text-secondary hover:text-text-primary'
+            onClick={() => setHorizonteMeses(3)}
+            className={`py-1.5 px-3 rounded font-semibold transition-all ${
+              horizonteMeses === 3 ? 'bg-gold text-black font-bold shadow-gold-glow' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            <ShieldCheck size={13} className="text-text-secondary" />
-            <span>Conservador</span>
+            3 Meses
           </button>
           <button
-            onClick={() => setCenario('realista')}
-            className={`py-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              cenario === 'realista'
-                ? 'bg-gold-muted text-gold shadow-gold-glow border border-gold/30 font-bold'
-                : 'text-text-secondary hover:text-text-primary'
+            onClick={() => setHorizonteMeses(6)}
+            className={`py-1.5 px-3 rounded font-semibold transition-all ${
+              horizonteMeses === 6 ? 'bg-gold text-black font-bold shadow-gold-glow' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            <Target size={13} className="text-gold" />
-            <span>Realista (Recomendado)</span>
+            6 Meses (Padrão)
           </button>
           <button
-            onClick={() => setCenario('otimista')}
-            className={`py-1.5 px-3 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              cenario === 'otimista'
-                ? 'bg-success/20 text-success shadow-sm border border-success/30 font-bold'
-                : 'text-text-secondary hover:text-text-primary'
+            onClick={() => setHorizonteMeses(12)}
+            className={`py-1.5 px-3 rounded font-semibold transition-all ${
+              horizonteMeses === 12 ? 'bg-gold text-black font-bold shadow-gold-glow' : 'text-text-secondary hover:text-text-primary'
             }`}
           >
-            <Zap size={13} className="text-success" />
-            <span>Otimista (+Prospectos)</span>
+            12 Meses (Anual)
           </button>
         </div>
       </div>
 
-      {/* Cards de Previsão: Próximo Mês, 3 Meses e 6 Meses */}
+      {/* Cards de Comparativo Temporal */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* MRR Ativo Garantido */}
+        {/* Mês Atual (Base) */}
         <div className="card border-border">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">MRR Contratado Base</span>
+            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+              {mesAtual?.labelCompleto} (Atual)
+            </span>
             <Building2 size={16} className="text-text-secondary" />
           </div>
-          <p className="kpi-number text-text-primary mt-2">{formatCurrency(forecastMetrics.mrrGarantido)}</p>
-          <p className="text-[10px] text-text-secondary mt-1">Garantido por clientes ativos da Jota</p>
+          <p className="kpi-number text-text-primary mt-2">{formatCurrency(mesAtual?.receitaContratada || 0)}</p>
+          <p className="text-[10px] text-text-secondary mt-1">
+            {mesAtual?.contratosVigentes.length} contratos ativos no mês
+          </p>
         </div>
 
-        {/* Previsão Próximo Mês */}
+        {/* Próximo Mês */}
         <div className="card border-gold/30 shadow-gold-glow">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-gold uppercase tracking-wider">Lucro Previsto (Próximo Mês)</span>
+            <span className="text-[10px] font-bold text-gold uppercase tracking-wider">
+              {proximoMes?.labelCompleto} (+1 Mês)
+            </span>
             <ArrowUpRight size={16} className="text-gold" />
           </div>
-          <p className={`kpi-number mt-2 ${forecastMetrics.prev1Mes.lucro >= 0 ? 'text-gold' : 'text-danger'}`}>
-            {formatCurrency(forecastMetrics.prev1Mes.lucro)}
-          </p>
+          <p className="kpi-number text-gold mt-2">{formatCurrency(proximoMes?.receitaContratada || 0)}</p>
           <div className="flex items-center justify-between text-[10px] text-text-secondary mt-1 pt-1 border-t border-border/50">
-            <span>Rec: {formatCurrency(forecastMetrics.prev1Mes.receita)}</span>
-            <span>Desp: {formatCurrency(forecastMetrics.prev1Mes.despesa)}</span>
+            <span>Lucro Líquido: {formatCurrency(proximoMes?.lucroLiquidoProjetado || 0)}</span>
+            <span className="text-success font-bold">{proximoMes?.margemOperacional.toFixed(0)}% margem</span>
           </div>
         </div>
 
-        {/* Previsão 3 Meses */}
-        <div className="card border-cyan-500/30">
+        {/* Em 3 Meses */}
+        <div className="card border-cyan-500/20">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Lucro Previsto (3 Meses)</span>
+            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
+              {em3Meses?.labelCompleto} (+3 Meses)
+            </span>
             <Calendar size={16} className="text-cyan-400" />
           </div>
-          <p className={`kpi-number mt-2 ${forecastMetrics.prev3Meses.lucro >= 0 ? 'text-cyan-400' : 'text-danger'}`}>
-            {formatCurrency(forecastMetrics.prev3Meses.lucro)}
-          </p>
+          <p className="kpi-number text-cyan-400 mt-2">{formatCurrency(em3Meses?.receitaContratada || 0)}</p>
           <p className="text-[10px] text-text-secondary mt-1">
-            Faturamento trimestral: {formatCurrency(forecastMetrics.prev3Meses.receita)}
+            Lucro Previsto: {formatCurrency(em3Meses?.lucroLiquidoProjetado || 0)}
           </p>
         </div>
 
-        {/* Previsão 6 Meses */}
-        <div className="card border-purple-500/30">
+        {/* Em 6 Meses */}
+        <div className="card border-purple-500/20">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Lucro Previsto (6 Meses)</span>
-            <TrendingUp size={16} className="text-purple-400" />
+            <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">
+              {em6Meses?.labelCompleto} (+6 Meses)
+            </span>
+            <ShieldCheck size={16} className="text-purple-400" />
           </div>
-          <p className={`kpi-number mt-2 ${forecastMetrics.prev6Meses.lucro >= 0 ? 'text-purple-400' : 'text-danger'}`}>
-            {formatCurrency(forecastMetrics.prev6Meses.lucro)}
-          </p>
+          <p className="kpi-number text-purple-400 mt-2">{formatCurrency(em6Meses?.receitaContratada || 0)}</p>
           <p className="text-[10px] text-text-secondary mt-1">
-            Faturamento semestral: {formatCurrency(forecastMetrics.prev6Meses.receita)}
+            {em6Meses?.contratosVigentes.length} contratos com vigência até este mês
           </p>
         </div>
       </div>
 
-      {/* Gráfico Visual de Projeção */}
+      {/* Gráfico da Curva Contratual Real */}
       <div className="card p-5">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
           <div>
-            <h3 className="font-display text-sm font-bold text-text-primary">Curva de Forecast & Tendência de Lucro</h3>
-            <p className="text-xs text-text-secondary">Comparação dos meses realizados com a projeção futura para os próximos 90 dias</p>
+            <h3 className="font-display text-sm font-bold text-text-primary">
+              Curva de Receita Contratual Garantida vs Custos Fixos
+            </h3>
+            <p className="text-xs text-text-secondary">
+              A curva reflete a saída real de contratos que possuem data de encerramento programada
+            </p>
           </div>
           <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1.5 text-text-secondary">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>Realizado</span>
-            </span>
             <span className="flex items-center gap-1.5 text-gold font-semibold">
-              <span className="w-2.5 h-2.5 rounded-full bg-gold animate-pulse" />
-              <span>Projeção Futura</span>
+              <span className="w-2.5 h-2.5 rounded-full bg-gold" />
+              <span>Receita Contratada</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-red-400 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+              <span>Custos Fixos</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+              <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+              <span>Lucro Líquido</span>
             </span>
           </div>
         </div>
@@ -359,87 +354,197 @@ export default function FinanceiroPrevisao({
               <Tooltip content={<CustomTooltip />} />
               <Legend verticalAlign="top" align="right" iconType="circle" wrapperStyle={{ paddingBottom: '10px', fontSize: '11px' }} />
               
-              {/* Barras do Realizado */}
-              <Bar dataKey="Receita Realizada" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={30} />
-              <Bar dataKey="Despesa Realizada" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={30} />
-
-              {/* Linhas de Projeção */}
-              <Line type="monotone" dataKey="Receita Projetada" stroke="#C9A84C" strokeWidth={2.5} strokeDasharray="5 5" dot={{ r: 4, fill: '#C9A84C' }} />
-              <Line type="monotone" dataKey="Despesa Projetada" stroke="#F87171" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3, fill: '#F87171' }} />
+              <Bar dataKey="Receita Contratada" fill="#C9A84C" radius={[4, 4, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="Custos Fixos" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={32} />
               <Line type="monotone" dataKey="Lucro Projetado" stroke="#06B6D4" strokeWidth={2.5} dot={{ r: 4, fill: '#06B6D4' }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Tabela de Detalhamento da Previsão */}
+      {/* Tabela de Planejamento Mês a Mês com Destaque de Vencimento de Contratos */}
       <div className="card p-0 overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-surface-elevated flex items-center justify-between">
-          <h3 className="font-display text-sm font-bold text-text-primary">Quadro Resumo de Planejamento Financeiro</h3>
-          <span className="text-xs text-text-secondary capitalize">Cenário {cenario} ativo</span>
+          <div>
+            <h3 className="font-display text-sm font-bold text-text-primary">
+              Detalhamento Mês a Mês & Contratos Expirando
+            </h3>
+            <p className="text-xs text-text-secondary">
+              Acompanhe quais clientes encerram contrato em cada mês para agir na renovação
+            </p>
+          </div>
+          <span className="text-xs text-text-secondary">
+            Clique na linha para inspecionar os contratos
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-surface">
-                <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase">Horizonte</th>
-                <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Receita Estimada</th>
-                <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Custos Estimados</th>
+                <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase">Mês de Referência</th>
+                <th className="text-center px-5 py-3.5 text-text-secondary font-medium uppercase">Contratos Vigentes</th>
+                <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase">Contratos que Encerram no Mês</th>
+                <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Receita Contratada</th>
+                <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Custos Fixos</th>
                 <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Lucro Projetado</th>
-                <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase">Margem Operacional</th>
+                <th className="text-center px-5 py-3.5 text-text-secondary font-medium uppercase">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              <tr className="hover:bg-surface-elevated/40">
-                <td className="px-5 py-4 font-bold text-text-primary">1 Mês (Próximo Mês)</td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-success font-semibold">
-                  {formatCurrency(forecastMetrics.prev1Mes.receita)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-danger font-semibold">
-                  {formatCurrency(forecastMetrics.prev1Mes.despesa)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-gold font-bold text-sm">
-                  {formatCurrency(forecastMetrics.prev1Mes.lucro)}
-                </td>
-                <td className="px-5 py-4 text-right font-mono font-bold text-text-primary">
-                  {forecastMetrics.prev1Mes.margem.toFixed(1)}%
-                </td>
-              </tr>
-              <tr className="hover:bg-surface-elevated/40">
-                <td className="px-5 py-4 font-bold text-text-primary">3 Meses (Trimestre)</td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-success font-semibold">
-                  {formatCurrency(forecastMetrics.prev3Meses.receita)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-danger font-semibold">
-                  {formatCurrency(forecastMetrics.prev3Meses.despesa)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-cyan-400 font-bold text-sm">
-                  {formatCurrency(forecastMetrics.prev3Meses.lucro)}
-                </td>
-                <td className="px-5 py-4 text-right font-mono font-bold text-text-primary">
-                  {forecastMetrics.prev1Mes.margem.toFixed(1)}%
-                </td>
-              </tr>
-              <tr className="hover:bg-surface-elevated/40">
-                <td className="px-5 py-4 font-bold text-text-primary">6 Meses (Semestre)</td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-success font-semibold">
-                  {formatCurrency(forecastMetrics.prev6Meses.receita)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-danger font-semibold">
-                  {formatCurrency(forecastMetrics.prev6Meses.despesa)}
-                </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-purple-400 font-bold text-sm">
-                  {formatCurrency(forecastMetrics.prev6Meses.lucro)}
-                </td>
-                <td className="px-5 py-4 text-right font-mono font-bold text-text-primary">
-                  {forecastMetrics.prev1Mes.margem.toFixed(1)}%
-                </td>
-              </tr>
+              {projecaoMeses.map(m => {
+                const isSelected = mesSelecionadoDetalhe === m.index
+
+                return (
+                  <tr
+                    key={m.index}
+                    onClick={() => setMesSelecionadoDetalhe(m.index)}
+                    className={`cursor-pointer transition-colors ${
+                      isSelected ? 'bg-surface-elevated border-l-2 border-gold' : 'hover:bg-surface-elevated/40'
+                    }`}
+                  >
+                    {/* Mês */}
+                    <td className="px-5 py-4 font-bold text-text-primary">
+                      <div className="flex items-center gap-2">
+                        <span>{m.labelCompleto}</span>
+                        {m.isAtual && (
+                          <span className="badge border border-border bg-surface text-[9px] text-text-secondary">
+                            Atual
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Quantidade Vigente */}
+                    <td className="px-5 py-4 text-center font-mono font-bold text-text-primary">
+                      {m.contratosVigentes.length} {m.contratosVigentes.length === 1 ? 'cliente' : 'clientes'}
+                    </td>
+
+                    {/* Contratos que Encerram */}
+                    <td className="px-5 py-4">
+                      {m.contratosExpirandoNoMes.length === 0 ? (
+                        <span className="text-text-secondary/60 italic">Nenhum contrato encerra</span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="badge border border-amber-500/30 bg-amber-500/10 text-amber-400 font-bold inline-flex items-center gap-1">
+                            <AlertTriangle size={11} />
+                            <span>
+                              {m.contratosExpirandoNoMes.length} {m.contratosExpirandoNoMes.length === 1 ? 'cliente encerra' : 'clientes encerram'} ({formatCurrency(m.valorEmRiscoExpiracao)}/mês)
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Receita */}
+                    <td className="px-5 py-4 text-right font-display tabular-nums text-success font-bold text-sm">
+                      {formatCurrency(m.receitaContratada)}
+                    </td>
+
+                    {/* Custos */}
+                    <td className="px-5 py-4 text-right font-display tabular-nums text-danger font-semibold">
+                      {formatCurrency(m.despesaTotalProjetada)}
+                    </td>
+
+                    {/* Lucro */}
+                    <td className="px-5 py-4 text-right font-display tabular-nums text-gold font-bold text-sm">
+                      {formatCurrency(m.lucroLiquidoProjetado)}
+                    </td>
+
+                    {/* Ação */}
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMesSelecionadoDetalhe(m.index)
+                        }}
+                        className="text-xs text-gold hover:text-white underline font-semibold"
+                      >
+                        Ver Detalhes
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Painel do Mês em Detalhe */}
+      {mesEmFoco && (
+        <div className="card border-gold/30 bg-surface-elevated p-5 animate-scale-in">
+          <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+            <div>
+              <h4 className="font-display text-sm font-bold text-text-primary">
+                Inspecionando {mesEmFoco.labelCompleto}
+              </h4>
+              <p className="text-xs text-text-secondary">
+                Lista de todos os contratos que estarão vigentes ou expirando neste mês
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] text-text-secondary uppercase tracking-wider block">Faturamento Previsto</span>
+              <span className="font-display text-base font-bold text-gold">{formatCurrency(mesEmFoco.receitaContratada)}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Lista de Contratos Vigentes */}
+            <div>
+              <h5 className="text-xs font-bold text-text-primary mb-2 flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-success" />
+                <span>Contratos Vigentes ({mesEmFoco.contratosVigentes.length})</span>
+              </h5>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                {mesEmFoco.contratosVigentes.map(c => (
+                  <div key={c.id} className="flex items-center justify-between p-2 rounded bg-surface border border-border text-xs">
+                    <div>
+                      <span className="font-semibold text-text-primary block">{c.nome}</span>
+                      <span className="text-[10px] text-text-secondary">
+                        Vigência: {c.data_inicio_contrato ? new Date(c.data_inicio_contrato).toLocaleDateString('pt-BR') : 'Início'} 
+                        {' → '} 
+                        {c.data_fim_contrato ? new Date(c.data_fim_contrato).toLocaleDateString('pt-BR') : 'Contínuo'}
+                      </span>
+                    </div>
+                    <span className="font-display font-bold text-success text-xs">
+                      {formatCurrency(c.valor_contrato || 0)}/mês
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Contratos que Expiram neste Mês */}
+            <div>
+              <h5 className="text-xs font-bold text-text-primary mb-2 flex items-center gap-1.5">
+                <AlertTriangle size={13} className="text-amber-400" />
+                <span>Contratos que Expiram Neste Mês ({mesEmFoco.contratosExpirandoNoMes.length})</span>
+              </h5>
+              {mesEmFoco.contratosExpirandoNoMes.length === 0 ? (
+                <div className="p-4 rounded-lg bg-surface border border-border text-center text-xs text-text-secondary italic">
+                  Nenhum contrato encerra neste mês. Todos os contratos vigentes continuarão ativos.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {mesEmFoco.contratosExpirandoNoMes.map(c => (
+                    <div key={c.id} className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-text-primary">{c.nome}</span>
+                        <span className="font-mono text-amber-400 font-bold">{formatCurrency(c.valor_contrato || 0)}/mês</span>
+                      </div>
+                      <p className="text-[11px] text-text-secondary mt-1">
+                        Data final de contrato: <strong className="text-amber-300">{new Date(c.data_fim_contrato!).toLocaleDateString('pt-BR')}</strong>.
+                        Se não for renovado com o cliente, a receita deixará de entrar a partir do mês seguinte.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
