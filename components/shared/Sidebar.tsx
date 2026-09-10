@@ -16,6 +16,7 @@ import {
   X,
   Palette,
   ClipboardList,
+  DollarSign,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/clientes', label: 'Clientes', icon: Users },
   { href: '/projetos', label: 'Projetos', icon: KanbanSquare },
   { href: '/demandas', label: 'Demandas', icon: ClipboardList },
+  { href: '/financeiro', label: 'Financeiro', icon: DollarSign },
   { href: '/equipe', label: 'Equipe', icon: UserCog },
   { href: '/design', label: 'Demandas', icon: Palette },
   { href: '/configuracoes', label: 'Config', icon: Settings },

@@ -9,6 +9,7 @@ export type StatusCliente = 'prospecto' | 'ativo' | 'inativo'
 export type StatusProjeto = 'planejamento' | 'em_andamento' | 'concluido' | 'cancelado'
 export type StatusTarefa = 'a_fazer' | 'em_andamento' | 'concluido'
 export type TipoLancamento = 'receita' | 'despesa'
+export type EmpresaGrupo = 'jota_esportivo' | 'jota_tech' | 'holding'
 
 export interface Profile {
   id: string
@@ -29,6 +30,7 @@ export interface Cliente {
   segmento: string | null
   status: StatusCliente
   valor_contrato: number | null
+  empresa?: EmpresaGrupo | string
   criado_por: string | null
   created_at: string
 }
@@ -40,6 +42,8 @@ export interface ClientePublico {
   telefone: string | null
   segmento: string | null
   status: StatusCliente
+  valor_contrato?: number | null
+  empresa?: EmpresaGrupo | string
   created_at: string
 }
 
@@ -60,6 +64,7 @@ export interface Projeto {
   status: StatusProjeto
   prazo: string | null
   descricao: string | null
+  empresa?: EmpresaGrupo | string
   created_at: string
   cliente?: ClientePublico | null
   responsavel?: Profile | null
@@ -108,6 +113,7 @@ export interface Lancamento {
   projeto_id: string | null
   data_lancamento: string
   comprovante_url: string | null
+  empresa?: EmpresaGrupo | string
   criado_por: string | null
   created_at: string
   categoria?: CategoriaFinanceiro | null

@@ -26,6 +26,7 @@ export default function NovoLancamentoForm({ categorias, clientes, projetos }: N
     categoria_id: '',
     cliente_id: '',
     projeto_id: '',
+    empresa: 'jota_esportivo',
     data_lancamento: new Date().toISOString().split('T')[0],
   })
 
@@ -69,6 +70,7 @@ export default function NovoLancamentoForm({ categorias, clientes, projetos }: N
       categoria_id: form.categoria_id || null,
       cliente_id: form.cliente_id || null,
       projeto_id: form.projeto_id || null,
+      empresa: form.empresa,
       data_lancamento: form.data_lancamento,
       criado_por: profile.id,
     })
@@ -109,6 +111,21 @@ export default function NovoLancamentoForm({ categorias, clientes, projetos }: N
           </div>
 
           <div>
+            <label htmlFor="empresa" className="label">Empresa da Holding *</label>
+            <select
+              id="empresa"
+              name="empresa"
+              value={form.empresa}
+              onChange={handleChange}
+              className="input"
+            >
+              <option value="jota_esportivo">⚽ Jota Esportivo</option>
+              <option value="jota_tech">💻 Jota Tech</option>
+              <option value="holding">🏢 Holding Geral</option>
+            </select>
+          </div>
+
+          <div className="sm:col-span-2">
             <label htmlFor="valor" className="label">Valor (R$) *</label>
             <input
               id="valor"

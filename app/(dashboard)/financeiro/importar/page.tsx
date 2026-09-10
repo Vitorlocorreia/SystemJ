@@ -5,7 +5,7 @@ import { useDropzone } from 'react-dropzone'
 import * as XLSX from 'xlsx'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Upload, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react'
+import { Upload, CheckCircle, AlertCircle, ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useProfile } from '@/lib/hooks/useProfile'
@@ -17,6 +17,7 @@ interface Row {
   tipo: 'receita' | 'despesa'
   categoria: string
   cliente: string
+  empresa?: string
   _status?: 'ok' | 'erro'
   _erro?: string
 }
@@ -40,6 +41,44 @@ export default function ImportarPlanilhaPage() {
   const [step, setStep] = useState<'upload' | 'preview' | 'done'>('upload')
   const [importing, setImporting] = useState(false)
   const [results, setResults] = useState({ ok: 0, erro: 0 })
+
+  function handleDownloadTemplate() {
+    const templateData = [
+      {
+        'data': '2026-09-01',
+        'descricao': 'Mensalidade Contrato Esportivo',
+        'valor': 5000,
+        'tipo': 'receita',
+        'categoria': 'Patrocínio',
+        'cliente': 'Exemplo Cliente',
+        'empresa': 'jota_esportivo'
+      },
+      {
+        'data': '2026-09-05',
+        'descricao': 'Diária de Filmmaker Cobertura Treino',
+        'valor': 800,
+        'tipo': 'despesa',
+        'categoria': 'Produção e Eventos',
+        'cliente': 'Exemplo Cliente',
+        'empresa': 'jota_esportivo'
+      },
+      {
+        'data': '2026-09-10',
+        'descricao': 'Hospedagem Servidores Cloud',
+        'valor': 450,
+        'tipo': 'despesa',
+        'categoria': 'Software e Ferramentas',
+        'cliente': '',
+        'empresa': 'jota_tech'
+      }
+    ]
+
+    const ws = XLSX.utils.json_to_sheet(templateData)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Modelo Importacao')
+    XLSX.writeFile(wb, 'modelo_importacao_financeiro_jota.xlsx')
+    toast.success('Modelo de planilha baixado com sucesso!')
+  }
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -150,16 +189,33 @@ export default function ImportarPlanilhaPage() {
       </div>
 
       {step === 'upload' && (
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-xl p-16 text-center cursor-pointer transition-all duration-200 ${
-            isDragActive ? 'border-gold bg-gold-muted' : 'border-border hover:border-gold/40 hover:bg-surface-elevated'
-          }`}
-        >
-          <input {...getInputProps()} />
-          <Upload size={40} className={`mx-auto mb-4 ${isDragActive ? 'text-gold' : 'text-text-secondary'}`} />
-          <p className="text-text-primary font-medium">Arraste o arquivo ou clique para selecionar</p>
-          <p className="text-text-secondary text-sm mt-1">.xlsx, .xls ou .csv</p>
+        <div className="space-y-4">
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-xl p-16 text-center cursor-pointer transition-all duration-200 ${
+              isDragActive ? 'border-gold bg-gold-muted' : 'border-border hover:border-gold/40 hover:bg-surface-elevated'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload size={40} className={`mx-auto mb-4 ${isDragActive ? 'text-gold' : 'text-text-secondary'}`} />
+            <p className="text-text-primary font-medium">Arraste o arquivo ou clique para selecionar</p>
+            <p className="text-text-secondary text-sm mt-1">.xlsx, .xls ou .csv</p>
+          </div>
+
+          <div className="flex items-center justify-between p-4 bg-surface border border-border rounded-xl">
+            <div>
+              <p className="text-xs font-bold text-text-primary">Precisa do modelo padrão?</p>
+              <p className="text-[11px] text-text-secondary">Baixe nossa planilha pré-formatada com colunas de data, valor, categoria e empresa.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
+            >
+              <Download size={14} />
+              <span>Baixar Modelo (.xlsx)</span>
+            </button>
+          </div>
         </div>
       )}
 
