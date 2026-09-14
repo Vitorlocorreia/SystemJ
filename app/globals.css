@@ -104,11 +104,11 @@
 
   /* ── Cards ── */
   .card {
-    @apply bg-surface border border-border rounded-lg p-5;
+    @apply bg-surface border border-border rounded-lg p-5 min-w-0 overflow-hidden;
   }
 
   .card-elevated {
-    @apply bg-surface-elevated border border-border rounded-lg p-5;
+    @apply bg-surface-elevated border border-border rounded-lg p-5 min-w-0 overflow-hidden;
   }
 
   /* ── Inputs ── */
@@ -125,32 +125,32 @@
 
   /* ── Badges ── */
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium max-w-full truncate;
   }
 
   .badge-gold {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold-muted text-gold border border-gold/20;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-gold-muted text-gold border border-gold/20 max-w-full truncate;
   }
 
   .badge-success {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/10 text-success border border-success/20 max-w-full truncate;
   }
 
   .badge-danger {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger border border-danger/20;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger border border-danger/20 max-w-full truncate;
   }
 
   .badge-secondary {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-elevated text-text-secondary border border-border;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-elevated text-text-secondary border border-border max-w-full truncate;
   }
 
   /* ── KPI Number ── */
   .kpi-number {
-    @apply font-display text-display-lg text-text-primary tabular-nums;
+    @apply font-display text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary tabular-nums truncate block max-w-full tracking-tight;
   }
 
   .kpi-number-gold {
-    @apply font-display text-display-lg text-gold tabular-nums;
+    @apply font-display text-xl sm:text-2xl lg:text-3xl font-bold text-gold tabular-nums truncate block max-w-full tracking-tight;
   }
 
   /* ── Dividers ── */

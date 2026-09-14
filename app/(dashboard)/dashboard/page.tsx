@@ -105,7 +105,7 @@ export default async function DashboardPage() {
                 <Icon size={14} className={gold ? 'text-gold' : 'text-text-secondary'} />
               </div>
             </div>
-            <p className={`font-display tabular-nums leading-none ${gold ? 'text-gold text-3xl font-bold' : 'text-text-primary text-3xl font-bold'}`}>
+            <p className={`font-display tabular-nums leading-tight tracking-tight truncate max-w-full block ${gold ? 'text-gold text-xl sm:text-2xl lg:text-3xl font-bold' : 'text-text-primary text-xl sm:text-2xl lg:text-3xl font-bold'}`}>
               {value}
             </p>
             <p className="text-text-secondary text-xs mt-2">{sub}</p>

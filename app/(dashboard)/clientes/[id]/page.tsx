@@ -120,9 +120,9 @@ export default async function ClienteDetailPage({
             <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">Contrato Mensal</span>
             <DollarSign size={16} className="text-gold opacity-60" />
           </div>
-          <div className="mt-4">
+          <div className="mt-4 min-w-0 overflow-hidden">
             <p className="kpi-number-gold">{formatCurrency(cliente.valor_contrato ?? 0)}</p>
-            <p className="text-[10px] text-text-secondary mt-1">
+            <p className="text-[10px] text-text-secondary mt-1 truncate">
               Faturamento anual estimado: {formatCurrency((cliente.valor_contrato ?? 0) * 12)}
             </p>
           </div>
