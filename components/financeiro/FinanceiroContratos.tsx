@@ -20,7 +20,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
-  CreditCard
+  CreditCard,
+  RotateCcw
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import type { Cliente, Projeto, EmpresaGrupo, Cobranca, Lancamento } from '@/types'
@@ -260,7 +261,7 @@ export default function FinanceiroContratos({
     }
   }
 
-  // Abrir modal de registro de pagamento
+  // Abrir modal de registro/edição de pagamento
   function abrirModalPagamento(cliente: Cliente) {
     const cobrancaExistente = cobrancasDoMes.find(c => c.cliente_id === cliente.id)
     setClientePagamento(cliente)
@@ -270,13 +271,45 @@ export default function FinanceiroContratos({
     const jaPago = cobrancaExistente ? Number(cobrancaExistente.valor_pago || 0) : 0
     const restante = Math.max(0, valorMensal - jaPago)
 
+    // Preenche por padrão como Pago Integral (ou valor total do contrato)
+    const valorInicialInput = cobrancaExistente && jaPago > 0 ? jaPago.toString() : (restante > 0 ? restante.toString() : valorMensal.toString())
+
     setTipoPagamento('integral')
-    setValorPagoInput(restante.toString())
-    setDataPagamentoInput(new Date().toISOString().slice(0, 10))
+    setValorPagoInput(valorInicialInput)
+    setDataPagamentoInput(cobrancaExistente?.data_pagamento ? cobrancaExistente.data_pagamento.slice(0, 10) : new Date().toISOString().slice(0, 10))
     setFormaPagamentoInput(cliente.forma_pagamento || 'PIX')
     setObservacaoPagamento(cobrancaExistente?.observacao || '')
     setLancarNoCaixa(true)
     setModalPagamentoAberto(true)
+  }
+
+  // Estornar / Reabrir Cobrança como Pendente
+  async function handleEstornarPagamento() {
+    if (!cobrancaPagamento) return
+    if (!confirm('Deseja estornar o pagamento e reabrir a cobrança como Pendente?')) return
+
+    setSavingPagamento(true)
+    const supabase = createClient() as any
+    const { data, error } = await supabase
+      .from('cobrancas')
+      .update({
+        valor_pago: 0,
+        status: 'pendente',
+        data_pagamento: null,
+        observacao: 'Pagamento estornado pelo usuário'
+      })
+      .eq('id', cobrancaPagamento.id)
+      .select('*')
+      .single()
+
+    setSavingPagamento(false)
+    if (error) {
+      toast.error('Erro ao estornar pagamento: ' + error.message)
+    } else {
+      onCobrancasChange(cobrancas.map(c => c.id === data.id ? data : c))
+      setModalPagamentoAberto(false)
+      toast.success('Pagamento estornado! Cobrança reaberta como Pendente.')
+    }
   }
 
   // Registrar pagamento (Integral ou Parcial)
@@ -698,7 +731,7 @@ export default function FinanceiroContratos({
                               }`}
                             >
                               <CreditCard size={12} />
-                              <span>{isQuitado ? 'Ver Pagamento' : 'Dar Baixa'}</span>
+                              <span>{isQuitado || isParcial ? '✏️ Editar Pagamento' : 'Dar Baixa (Pago Integral)'}</span>
                             </button>
                           </td>
                         </tr>
@@ -1007,22 +1040,38 @@ export default function FinanceiroContratos({
               </div>
 
               {/* Botões */}
-              <div className="flex items-center justify-end gap-2 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setModalPagamentoAberto(false)}
-                  disabled={savingPagamento}
-                  className="btn-ghost text-xs py-2 px-4"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPagamento}
-                  className="btn-primary text-xs py-2 px-5"
-                >
-                  {savingPagamento ? 'Registrando...' : 'Confirmar Pagamento'}
-                </button>
+              <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
+                {cobrancaPagamento && Number(cobrancaPagamento.valor_pago || 0) > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleEstornarPagamento}
+                    disabled={savingPagamento}
+                    className="btn-danger text-xs py-1.5 px-3 flex items-center gap-1.5 font-bold"
+                  >
+                    <RotateCcw size={13} />
+                    <span>Estornar / Reabrir</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalPagamentoAberto(false)}
+                    disabled={savingPagamento}
+                    className="btn-ghost text-xs py-2 px-4"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingPagamento}
+                    className="btn-primary text-xs py-2 px-5 shadow-gold-glow"
+                  >
+                    {savingPagamento ? 'Salvo...' : 'Confirmar / Salvar Pagamento'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
