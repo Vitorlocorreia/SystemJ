@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import {
@@ -118,6 +119,31 @@ export default function MesaClienteView({
   const [novaPautaRespId, setNovaPautaRespId] = useState('')
   const [creatingPauta, setCreatingPauta] = useState(false)
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
+  const KANBAN_POSTAGENS_COLUNAS = [
+    { id: 'a_fazer', label: '📌 A Gravar / Pauta', borderTop: 'border-t-amber-500', headerBg: 'text-amber-400', cardBg: 'bg-amber-500/10 border-amber-500/30' },
+    { id: 'em_andamento', label: '✂️ Em Edição', borderTop: 'border-t-blue-500', headerBg: 'text-blue-400', cardBg: 'bg-blue-500/10 border-blue-500/30' },
+    { id: 'programado', label: '📅 Programado', borderTop: 'border-t-gold', headerBg: 'text-gold', cardBg: 'bg-gold/15 border-gold/50 shadow-gold-glow' },
+    { id: 'estoque', label: '📦 Estoque Reserva', borderTop: 'border-t-purple-500', headerBg: 'text-purple-400', cardBg: 'bg-purple-500/10 border-purple-500/30' },
+    { id: 'concluido', label: '🚀 Postado', borderTop: 'border-t-emerald-500', headerBg: 'text-emerald-400', cardBg: 'bg-emerald-500/10 border-emerald-500/30' },
+  ]
+
+  async function onKanbanDragEnd(result: DropResult) {
+    if (!result.destination) return
+    const { draggableId, destination } = result
+    const newStatus = destination.droppableId
+
+    setTarefas(prev =>
+      prev.map(t => (t.id === draggableId ? { ...t, status: newStatus } : t))
+    )
+
+    const supabase = createClient() as any
+    const { error } = await supabase.from('tarefas').update({ status: newStatus }).eq('id', draggableId)
+    if (error) {
+      toast.error('Erro ao mover Post-it: ' + error.message)
+    } else {
+      toast.success('Post-it de publicação movido!')
+    }
+  }
 
   // 1. Postagens da Semana Atual (Cronograma da Semana)
   const postagensSemanaAtual = useMemo(() => {
@@ -514,118 +540,147 @@ export default function MesaClienteView({
             </button>
           </div>
 
-          {/* Cards de Publicação & Programação */}
-          {postagensFiltradas.length === 0 ? (
-            <div className="card text-center py-12 space-y-3">
-              <Tv size={36} className="mx-auto text-text-secondary opacity-30" />
-              <p className="text-sm font-medium text-text-primary">Nenhuma postagem cadastrada neste filtro.</p>
-              <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-2 px-4 mx-auto">
-                + Programar Nova Postagem
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {postagensFiltradas.map(t => {
-                const isProgramado = t.status === 'programado' || t.data_programacao
-                const isPostado = t.status === 'concluido'
-                const isEstoque = t.status === 'estoque' || t.tipo_demanda === 'estoque'
+          {/* Kanban Board Trello / Post-it Style */}
+          <DragDropContext onDragEnd={onKanbanDragEnd}>
+            <div className="flex gap-4 overflow-x-auto pb-4 pt-1 select-none min-w-[1100px] xl:min-w-0">
+              {KANBAN_POSTAGENS_COLUNAS.map(col => {
+                const colTasks = postagensFiltradas.filter(t => {
+                  if (col.id === 'programado') {
+                    return t.status === 'programado' || (t.status === 'em_andamento' && t.data_programacao)
+                  }
+                  if (col.id === 'estoque') {
+                    return t.status === 'estoque' || t.tipo_demanda === 'estoque'
+                  }
+                  return t.status === col.id
+                })
 
                 return (
                   <div
-                    key={t.id}
-                    className={`card bg-surface-elevated/40 border transition-all space-y-3.5 relative flex flex-col justify-between ${
-                      isProgramado
-                        ? 'border-gold/50 bg-gold/5 shadow-gold-glow'
-                        : isPostado
-                        ? 'border-success/40 bg-success/5'
-                        : isEstoque
-                        ? 'border-cyan-500/40 bg-cyan-500/5'
-                        : 'border-border hover:border-gold/30'
-                    }`}
+                    key={col.id}
+                    className={`flex-1 min-w-[240px] max-w-[300px] bg-surface border border-border/80 rounded-2xl flex flex-col overflow-hidden shadow-lg border-t-4 ${col.borderTop}`}
                   >
-                    <div>
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                          isProgramado
-                            ? 'bg-gold text-black font-extrabold'
-                            : isPostado
-                            ? 'bg-success/20 text-success border border-success/30 font-bold'
-                            : isEstoque
-                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold'
-                            : 'bg-surface text-text-secondary border border-border'
-                        }`}>
-                          {isProgramado
-                            ? '📅 PROGRAMADO'
-                            : isPostado
-                            ? '🚀 PUBLICADO'
-                            : isEstoque
-                            ? '📦 ESTOQUE'
-                            : t.status.replace(/_/g, ' ')}
-                        </span>
-
-                        <span className="text-[9px] font-mono text-gold font-bold uppercase">
-                          {t.plataforma_programada || t.formato_video || 'Reels / TikTok'}
-                        </span>
-                      </div>
-
-                      {/* Title & Description */}
-                      <h4 className="text-sm font-semibold text-text-primary leading-snug">{t.titulo}</h4>
-                      {t.descricao && <p className="text-xs text-text-secondary mt-1.5 line-clamp-2">{t.descricao}</p>}
-
-                      {/* Agendamento Date & Time info */}
-                      {t.prazo && (
-                        <div className="mt-3 p-2 rounded-lg bg-surface border border-border/60 flex items-center justify-between text-[11px]">
-                          <span className="text-text-secondary font-bold uppercase text-[9px]">Data da Postagem:</span>
-                          <span className="font-mono font-bold text-gold flex items-center gap-1">
-                            <Clock size={11} />
-                            {formatDate(t.prazo)} {t.horario_inicio ? `às ${t.horario_inicio.slice(0, 5)}` : ''}
-                          </span>
-                        </div>
-                      )}
+                    {/* Header da Coluna Kanban */}
+                    <div className="p-3 border-b border-border/60 flex items-center justify-between bg-surface-elevated/40">
+                      <span className={`font-display text-xs font-bold ${col.headerBg}`}>
+                        {col.label}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold bg-surface px-2 py-0.5 rounded-full border border-border">
+                        {colTasks.length}
+                      </span>
                     </div>
 
-                    {/* Quick Status Action Controls */}
-                    <div className="pt-2 border-t border-border/40 space-y-2">
-                      <div className="flex items-center justify-between gap-1 text-[10px]">
-                        <span className="text-text-secondary">Mudar Status:</span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleMudarStatusPostagem(t.id, 'programado')}
-                            className="px-2 py-1 rounded bg-gold/20 hover:bg-gold text-gold hover:text-black font-bold transition-all"
-                            title="Marcar como Programado"
-                          >
-                            📅 Programar
-                          </button>
-                          <button
-                            onClick={() => handleMudarStatusPostagem(t.id, 'estoque')}
-                            className="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500 text-cyan-400 hover:text-black font-bold transition-all"
-                            title="Mover para Estoque de Reserva"
-                          >
-                            📦 Estoque
-                          </button>
-                          <button
-                            onClick={() => handleMudarStatusPostagem(t.id, 'concluido')}
-                            className="px-2 py-1 rounded bg-success/20 hover:bg-success text-success hover:text-black font-bold transition-all"
-                            title="Marcar como Postado"
-                          >
-                            🚀 Postado
-                          </button>
-                        </div>
-                      </div>
+                    {/* Droppable Area */}
+                    <Droppable droppableId={col.id}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`p-2.5 flex-1 flex flex-col gap-2.5 min-h-[350px] transition-colors ${
+                            snapshot.isDraggingOver ? 'bg-gold/5' : ''
+                          }`}
+                        >
+                          {colTasks.length === 0 ? (
+                            <div className="flex-1 flex flex-col items-center justify-center border border-dashed border-border/40 rounded-xl p-4 text-center">
+                              <p className="text-[10px] text-text-secondary/50 italic">Sem post-its nesta coluna</p>
+                            </div>
+                          ) : (
+                            colTasks.map((t, index) => (
+                              <Draggable key={t.id} draggableId={t.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={`p-3.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing space-y-2 flex flex-col justify-between ${col.cardBg} ${
+                                      snapshot.isDragging ? 'shadow-2xl scale-[1.04] rotate-1 z-50' : 'hover:border-gold/50 shadow-sm'
+                                    }`}
+                                  >
+                                    <div>
+                                      {/* Top Badges */}
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <span className="text-[8px] font-mono font-bold text-gold uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded">
+                                          {t.plataforma_programada || t.formato_video || 'Reels / TikTok'}
+                                        </span>
 
-                      {t.responsavel && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-text-secondary">
-                          <User size={11} className="text-gold" />
-                          <span>Editor / Responsável: {t.responsavel.nome}</span>
+                                        {t.prazo && (
+                                          <span className="text-[9px] font-mono text-gold font-bold flex items-center gap-1">
+                                            <Clock size={10} />
+                                            {t.horario_inicio ? t.horario_inicio.slice(0, 5) : formatDate(t.prazo)}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      {/* Titulo do Post-it */}
+                                      <h4 className="text-xs font-bold text-text-primary leading-snug line-clamp-2">
+                                        {t.titulo}
+                                      </h4>
+                                      {t.descricao && (
+                                        <p className="text-[10px] text-text-secondary mt-1 line-clamp-2 italic">
+                                          {t.descricao}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* Footer do Post-it */}
+                                    <div className="pt-2 border-t border-border/30 flex items-center justify-between text-[9px] text-text-secondary">
+                                      <span className="truncate max-w-[120px]">
+                                        {t.responsavel ? t.responsavel.nome.split(' ')[0] : 'Sem editor'}
+                                      </span>
+
+                                      {/* Botões Rápidos de Mudança de Status */}
+                                      <div className="flex items-center gap-1">
+                                        {col.id !== 'a_fazer' && (
+                                          <button
+                                            onClick={e => {
+                                              e.stopPropagation()
+                                              const prevCols: Record<string, string> = {
+                                                em_andamento: 'a_fazer',
+                                                programado: 'em_andamento',
+                                                estoque: 'programado',
+                                                concluido: 'estoque'
+                                              }
+                                              handleMudarStatusPostagem(t.id, prevCols[col.id] || 'a_fazer')
+                                            }}
+                                            className="px-1.5 py-0.5 rounded bg-surface hover:bg-surface-elevated text-text-secondary hover:text-text-primary transition-all font-bold"
+                                            title="Voltar Coluna"
+                                          >
+                                            ◀
+                                          </button>
+                                        )}
+                                        {col.id !== 'concluido' && (
+                                          <button
+                                            onClick={e => {
+                                              e.stopPropagation()
+                                              const nextCols: Record<string, string> = {
+                                                a_fazer: 'em_andamento',
+                                                em_andamento: 'programado',
+                                                programado: 'estoque',
+                                                estoque: 'concluido'
+                                              }
+                                              handleMudarStatusPostagem(t.id, nextCols[col.id] || 'concluido')
+                                            }}
+                                            className="px-1.5 py-0.5 rounded bg-gold/20 hover:bg-gold text-gold hover:text-black font-bold transition-all"
+                                            title="Avançar Coluna"
+                                          >
+                                            ▶
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))
+                          )}
+                          {provided.placeholder}
                         </div>
                       )}
-                    </div>
+                    </Droppable>
                   </div>
                 )
               })}
             </div>
-          )}
+          </DragDropContext>
         </div>
       )}
 
