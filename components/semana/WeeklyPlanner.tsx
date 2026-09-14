@@ -807,125 +807,60 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         )}
       </div>
 
-      {/* Hub Exposto de Clientes da Semana (Mesa por Cliente) */}
-      <div className="bg-surface border border-border rounded-xl p-4 space-y-3 animate-fade-in">
+      {/* Hub Exposto de Clientes da Semana — Minimalist Profile Chips */}
+      <div className="bg-surface border border-border rounded-xl p-3.5 space-y-2.5 animate-fade-in">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-gold" />
-            <h2 className="font-display text-sm font-bold text-text-primary">
-              Clientes da Semana — Mesa por Cliente Exposta
-            </h2>
-            <span className="text-[10px] bg-gold-muted text-gold border border-gold/20 px-2 py-0.5 rounded-full font-bold">
-              {clientes.length} Clientes
-            </span>
-          </div>
+          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-1.5">
+            <Building2 size={13} className="text-gold" /> Mesas dos Clientes (Clique para abrir a Mesa)
+          </span>
           {selectedCliente !== 'todos' && (
             <button
               onClick={() => setSelectedCliente('todos')}
-              className="text-xs text-gold hover:underline flex items-center gap-1 font-medium"
+              className="text-[10px] text-gold hover:underline flex items-center gap-1 font-bold"
             >
-              <span>Limpar Filtro ({clientes.find(c => c.id === selectedCliente)?.nome})</span>
-              <X size={13} />
+              <span>Exibir Todos</span>
+              <X size={12} />
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-none">
           {clientes.map(c => {
             const tarefasDoCliente = tarefas.filter(t => t.projeto?.cliente?.id === c.id)
             const tarefasSemana = tarefasDoCliente.filter(t => weekDates.some(d => d.dateStr === t.prazo))
-            const proximaDemanda = tarefasSemana[0] || tarefasDoCliente[0]
             const isSelected = selectedCliente === c.id
 
             return (
-              <div
+              <Link
                 key={c.id}
-                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative ${
+                href={`/clientes/${c.id}`}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all duration-200 shrink-0 group ${
                   isSelected
-                    ? 'border-gold bg-gold/10 shadow-gold-glow'
-                    : 'border-border/70 bg-surface-elevated/40 hover:border-gold/30 hover:bg-surface-elevated'
+                    ? 'border-gold bg-gold/10 text-gold shadow-gold-glow font-bold'
+                    : 'border-border/60 bg-surface-elevated/50 hover:border-gold/40 hover:bg-surface-elevated text-text-primary'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <Link href={`/clientes/${c.id}`} className="flex items-center gap-2 min-w-0 group/link">
-                      <div className="w-7 h-7 rounded-xl bg-gold-muted border border-gold/30 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 overflow-hidden shadow-sm group-hover/link:border-gold">
-                        {c.logo_url || c.avatar_url ? (
-                          <img src={c.logo_url || c.avatar_url || ''} alt={c.nome} className="w-full h-full object-cover" />
-                        ) : (
-                          getInitials(c.nome)
-                        )}
-                      </div>
-                      <span className="font-semibold text-text-primary text-xs truncate group-hover/link:text-gold transition-colors">
-                        {c.nome}
-                      </span>
-                    </Link>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                      tarefasSemana.length > 0
-                        ? 'bg-gold-muted text-gold border border-gold/30'
-                        : 'bg-surface text-text-secondary border border-border'
-                    }`}>
-                      {tarefasSemana.length} {tarefasSemana.length === 1 ? 'vídeo' : 'vídeos'}
-                    </span>
-                  </div>
-
-                  {/* Demanda Atual na Semana (Clicável para abrir Detalhes/Notes) */}
-                  {proximaDemanda ? (
-                    <div
-                      onClick={() => {
-                        setRightWorkspaceTab('notas')
-                        abrirDetalhesTarefa(proximaDemanda)
-                      }}
-                      className="text-[10px] text-text-secondary bg-surface/80 rounded-lg p-2.5 border border-border/60 hover:border-gold/40 transition-colors mt-1 cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between gap-1 mb-0.5">
-                        <span className="text-[9px] font-bold text-gold uppercase tracking-wider flex items-center gap-1">
-                          <FileText size={10} /> Demanda Atual na Semana:
-                        </span>
-                        <span className="text-[9px] text-gold underline font-mono">Ver ➔</span>
-                      </div>
-                      <p className="font-semibold text-text-primary truncate">{proximaDemanda.titulo}</p>
-                      {proximaDemanda.prazo && (
-                        <p className="text-[9px] text-text-secondary mt-0.5">
-                          {formatDate(proximaDemanda.prazo)} {proximaDemanda.horario_inicio ? `• ${proximaDemanda.horario_inicio.slice(0, 5)}` : ''}
-                        </p>
-                      )}
-                    </div>
+                {/* Avatar Icon */}
+                <div className="w-7 h-7 rounded-lg bg-gold-muted border border-gold/30 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 overflow-hidden group-hover:border-gold transition-colors">
+                  {c.logo_url || c.avatar_url ? (
+                    <img src={c.logo_url || c.avatar_url || ''} alt={c.nome} className="w-full h-full object-cover" />
                   ) : (
-                    <div
-                      onClick={() => {
-                        setNewClienteId(c.id)
-                        setNewPrazo(formatYYYYMMDD(new Date()))
-                        setIsCreateOpen(true)
-                      }}
-                      className="text-[10px] text-text-secondary/60 bg-surface/40 rounded-lg p-2 border border-dashed border-border/40 mt-1 flex items-center justify-between cursor-pointer hover:border-gold/30"
-                    >
-                      <span className="italic">Sem demandas agendadas</span>
-                      <span className="text-gold text-[9px] font-bold">+ Nova Pauta</span>
-                    </div>
+                    getInitials(c.nome)
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2">
-                  <button
-                    onClick={() => setSelectedCliente(isSelected ? 'todos' : c.id)}
-                    className={`font-semibold py-1 px-2.5 rounded-md transition-colors ${
-                      isSelected
-                        ? 'bg-gold text-black font-bold'
-                        : 'bg-surface border border-border text-text-secondary hover:text-text-primary'
-                    }`}
-                  >
-                    {isSelected ? '✓ Filtrando' : 'Filtrar Agenda'}
-                  </button>
-                  <Link
-                    href={`/clientes/${c.id}`}
-                    className="btn-primary text-[10px] py-1 px-2.5 flex items-center gap-1 font-bold shadow-gold-glow"
-                  >
-                    <span>Abrir Mesa</span>
-                    <ExternalLink size={10} />
-                  </Link>
-                </div>
-              </div>
+                {/* Client Name */}
+                <span className="text-xs font-semibold truncate max-w-[130px] group-hover:text-gold transition-colors">
+                  {c.nome}
+                </span>
+
+                {/* Count Badge */}
+                {tarefasSemana.length > 0 && (
+                  <span className="text-[9px] font-bold bg-gold-muted text-gold border border-gold/30 px-1.5 py-0.2 rounded-full">
+                    {tarefasSemana.length}
+                  </span>
+                )}
+              </Link>
             )
           })}
         </div>
