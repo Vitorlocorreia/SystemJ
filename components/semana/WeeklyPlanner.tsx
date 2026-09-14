@@ -840,17 +840,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             return (
               <div
                 key={c.id}
-                onClick={() => {
-                  if (proximaDemanda) {
-                    setRightWorkspaceTab('notas')
-                    abrirDetalhesTarefa(proximaDemanda)
-                  } else {
-                    setNewClienteId(c.id)
-                    setNewPrazo(formatYYYYMMDD(new Date()))
-                    setIsCreateOpen(true)
-                  }
-                }}
-                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative cursor-pointer ${
+                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative ${
                   isSelected
                     ? 'border-gold bg-gold/10 shadow-gold-glow'
                     : 'border-border/70 bg-surface-elevated/40 hover:border-gold/30 hover:bg-surface-elevated'
@@ -858,18 +848,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 rounded-xl bg-gold-muted border border-gold/30 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 overflow-hidden shadow-sm">
+                    <Link href={`/clientes/${c.id}`} className="flex items-center gap-2 min-w-0 group/link">
+                      <div className="w-7 h-7 rounded-xl bg-gold-muted border border-gold/30 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 overflow-hidden shadow-sm group-hover/link:border-gold">
                         {c.logo_url || c.avatar_url ? (
                           <img src={c.logo_url || c.avatar_url || ''} alt={c.nome} className="w-full h-full object-cover" />
                         ) : (
                           getInitials(c.nome)
                         )}
                       </div>
-                      <span className="font-semibold text-text-primary text-xs truncate group-hover:text-gold transition-colors">
+                      <span className="font-semibold text-text-primary text-xs truncate group-hover/link:text-gold transition-colors">
                         {c.nome}
                       </span>
-                    </div>
+                    </Link>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                       tarefasSemana.length > 0
                         ? 'bg-gold-muted text-gold border border-gold/30'
@@ -879,14 +869,20 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                     </span>
                   </div>
 
-                  {/* Demanda Atual na Semana (Clicável para abrir Apple Notes) */}
+                  {/* Demanda Atual na Semana (Clicável para abrir Detalhes/Notes) */}
                   {proximaDemanda ? (
-                    <div className="text-[10px] text-text-secondary bg-surface/80 rounded-lg p-2.5 border border-border/60 hover:border-gold/40 transition-colors mt-1">
+                    <div
+                      onClick={() => {
+                        setRightWorkspaceTab('notas')
+                        abrirDetalhesTarefa(proximaDemanda)
+                      }}
+                      className="text-[10px] text-text-secondary bg-surface/80 rounded-lg p-2.5 border border-border/60 hover:border-gold/40 transition-colors mt-1 cursor-pointer"
+                    >
                       <div className="flex items-center justify-between gap-1 mb-0.5">
                         <span className="text-[9px] font-bold text-gold uppercase tracking-wider flex items-center gap-1">
-                          <FileText size={10} /> Demanda Atual (Clique p/ Notes):
+                          <FileText size={10} /> Demanda Atual na Semana:
                         </span>
-                        <span className="text-[9px] text-gold underline font-mono">Abrir ➔</span>
+                        <span className="text-[9px] text-gold underline font-mono">Ver ➔</span>
                       </div>
                       <p className="font-semibold text-text-primary truncate">{proximaDemanda.titulo}</p>
                       {proximaDemanda.prazo && (
@@ -896,14 +892,21 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                       )}
                     </div>
                   ) : (
-                    <div className="text-[10px] text-text-secondary/60 bg-surface/40 rounded-lg p-2 border border-dashed border-border/40 mt-1 flex items-center justify-between">
+                    <div
+                      onClick={() => {
+                        setNewClienteId(c.id)
+                        setNewPrazo(formatYYYYMMDD(new Date()))
+                        setIsCreateOpen(true)
+                      }}
+                      className="text-[10px] text-text-secondary/60 bg-surface/40 rounded-lg p-2 border border-dashed border-border/40 mt-1 flex items-center justify-between cursor-pointer hover:border-gold/30"
+                    >
                       <span className="italic">Sem demandas agendadas</span>
-                      <span className="text-gold text-[9px] font-bold">+ Criar Pauta</span>
+                      <span className="text-gold text-[9px] font-bold">+ Nova Pauta</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2">
                   <button
                     onClick={() => setSelectedCliente(isSelected ? 'todos' : c.id)}
                     className={`font-semibold py-1 px-2.5 rounded-md transition-colors ${
@@ -916,9 +919,9 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   </button>
                   <Link
                     href={`/clientes/${c.id}`}
-                    className="text-gold hover:underline flex items-center gap-1 font-medium"
+                    className="btn-primary text-[10px] py-1 px-2.5 flex items-center gap-1 font-bold shadow-gold-glow"
                   >
-                    <span>Ver Mesa</span>
+                    <span>Abrir Mesa</span>
                     <ExternalLink size={10} />
                   </Link>
                 </div>
