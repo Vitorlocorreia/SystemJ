@@ -30,6 +30,10 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
     data_fim_contrato: (cliente as any).data_fim_contrato || '',
   })
 
+  const [contratoIndeterminado, setContratoIndeterminado] = useState<boolean>(
+    !(cliente as any).data_fim_contrato
+  )
+
   const [logoUrl, setLogoUrl] = useState(cliente.logo_url || cliente.avatar_url || '')
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
@@ -91,7 +95,7 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
         valor_contrato: form.valor_contrato ? parseFloat(form.valor_contrato.replace(',', '.')) : null,
         dia_vencimento: form.dia_vencimento ? parseInt(form.dia_vencimento, 10) : null,
         data_inicio_contrato: form.data_inicio_contrato || null,
-        data_fim_contrato: form.data_fim_contrato || null,
+        data_fim_contrato: contratoIndeterminado ? null : (form.data_fim_contrato || null),
         logo_url: logoUrl || null,
         avatar_url: logoUrl || null,
       })
@@ -108,24 +112,27 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
         <Link href={`/clientes/${cliente.id}`} className="btn-ghost p-2 -ml-2">
           <ArrowLeft size={18} />
         </Link>
-        <h1 className="font-display text-display-md text-text-primary">Editar Cliente</h1>
+        <div>
+          <h1 className="font-display text-xl font-bold text-text-primary">Editar Cliente</h1>
+          <p className="text-xs text-text-secondary">Atualizar dados cadastrais de {cliente.nome}</p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-5">
-        {/* Seção de Ícone / Foto de Perfil do Cliente */}
-        <div className="p-4 bg-surface-elevated rounded-xl border border-border space-y-3">
-          <label className="label text-text-primary">Ícone / Logo do Cliente (Perfil)</label>
+        {/* Upload Logo / Avatar */}
+        <div>
+          <label className="label">Logo / Imagem do Cliente</label>
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-gold font-bold font-display text-xl">
+            <div className="w-14 h-14 rounded-2xl bg-surface-elevated border border-border flex items-center justify-center overflow-hidden shrink-0">
               {logoUrl ? (
-                <img src={logoUrl} alt={form.nome} className="w-full h-full object-cover" />
+                <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
               ) : (
-                (form.nome.substring(0, 2) || 'CL').toUpperCase()
+                <span className="text-xs font-bold text-text-secondary">Sem logo</span>
               )}
             </div>
             <div className="flex-1 space-y-1">
@@ -133,17 +140,17 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
                 type="url"
                 value={logoUrl}
                 onChange={e => setLogoUrl(e.target.value)}
-                placeholder="Cole a URL da logo/foto (https://...)"
                 className="input text-xs"
+                placeholder="Link da imagem/logo (https://...)"
               />
-              <p className="text-[10px] text-text-secondary">O ícone/logo aparecerá nos cards da semana, mesa e relatórios.</p>
+              <p className="text-[10px] text-text-secondary">Cole a URL pública da logo ou foto de perfil.</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2">
-            <label htmlFor="nome" className="label">Nome *</label>
+          <div>
+            <label htmlFor="nome" className="label">Nome da Empresa / Marca *</label>
             <input
               id="nome"
               name="nome"
@@ -151,7 +158,18 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
               value={form.nome}
               onChange={handleChange}
               className="input focus:ring-gold/20 focus:border-gold"
-              placeholder="Nome da empresa ou pessoa"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="segmento" className="label">Segmento / Ramo</label>
+            <input
+              id="segmento"
+              name="segmento"
+              value={form.segmento}
+              onChange={handleChange}
+              className="input focus:ring-gold/20 focus:border-gold"
+              placeholder="Ex: Fitness, Odontologia..."
             />
           </div>
 
@@ -163,24 +181,12 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
               value={form.cnpj_cpf}
               onChange={handleCnpjCpfChange}
               className="input focus:ring-gold/20 focus:border-gold"
-              placeholder="00.000.000/0000-00 ou 000.000.000-00"
+              placeholder="00.000.000/0000-00"
             />
           </div>
 
           <div>
-            <label htmlFor="segmento" className="label">Segmento esportivo</label>
-            <input
-              id="segmento"
-              name="segmento"
-              value={form.segmento}
-              onChange={handleChange}
-              className="input focus:ring-gold/20 focus:border-gold"
-              placeholder="Ex: Futebol, Basquete..."
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="label">E-mail</label>
+            <label htmlFor="email" className="label">E-mail de Contato</label>
             <input
               id="email"
               name="email"
@@ -267,15 +273,42 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
               </div>
 
               <div>
-                <label htmlFor="data_fim_contrato" className="label">Término / Vencimento do Contrato</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="data_fim_contrato" className="label mb-0">Término do Contrato</label>
+                </div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    id="chk_indeterminado"
+                    checked={contratoIndeterminado}
+                    onChange={e => {
+                      const checked = e.target.checked
+                      setContratoIndeterminado(checked)
+                      if (checked) {
+                        setForm(prev => ({ ...prev, data_fim_contrato: '' }))
+                      }
+                    }}
+                    className="rounded border-border text-gold focus:ring-gold accent-gold cursor-pointer"
+                  />
+                  <label htmlFor="chk_indeterminado" className="text-[11px] font-bold text-gold cursor-pointer">
+                    Sem término (Contínuo)
+                  </label>
+                </div>
+
                 <input
                   id="data_fim_contrato"
                   name="data_fim_contrato"
                   type="date"
+                  disabled={contratoIndeterminado}
                   value={form.data_fim_contrato}
                   onChange={handleChange}
-                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                  className={`input focus:ring-gold/20 focus:border-gold text-xs ${
+                    contratoIndeterminado ? 'opacity-40 cursor-not-allowed bg-surface-elevated' : ''
+                  }`}
                 />
+                {contratoIndeterminado && (
+                  <p className="text-[10px] text-gold mt-1 font-mono font-bold">♾️ Contrato por tempo indeterminado</p>
+                )}
               </div>
             </div>
           </div>

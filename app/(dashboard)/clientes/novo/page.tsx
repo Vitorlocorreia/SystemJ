@@ -20,7 +20,12 @@ export default function NovoClientePage() {
     segmento: '',
     status: 'prospecto' as const,
     valor_contrato: '',
+    dia_vencimento: '',
+    data_inicio_contrato: '',
+    data_fim_contrato: '',
   })
+
+  const [contratoIndeterminado, setContratoIndeterminado] = useState(true)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -67,7 +72,7 @@ export default function NovoClientePage() {
     if (!profile) return
     setLoading(true)
 
-    const supabase = createClient()
+    const supabase = createClient() as any
     const { error } = await supabase.from('clientes').insert({
       nome: form.nome,
       cnpj_cpf: form.cnpj_cpf || null,
@@ -76,6 +81,9 @@ export default function NovoClientePage() {
       segmento: form.segmento || null,
       status: form.status,
       valor_contrato: form.valor_contrato ? parseFloat(form.valor_contrato.replace(',', '.')) : null,
+      dia_vencimento: form.dia_vencimento ? parseInt(form.dia_vencimento, 10) : null,
+      data_inicio_contrato: form.data_inicio_contrato || null,
+      data_fim_contrato: contratoIndeterminado ? null : (form.data_fim_contrato || null),
       criado_por: profile.id,
     })
 
@@ -187,6 +195,81 @@ export default function NovoClientePage() {
               placeholder="0,00"
             />
             <p className="text-[10px] text-text-secondary mt-1">Use vírgula ou ponto para centavos.</p>
+          </div>
+
+          {/* Dados de Contrato e Vencimento */}
+          <div className="sm:col-span-2 pt-3 border-t border-border/40 space-y-3">
+            <h4 className="font-display text-xs font-bold text-gold uppercase tracking-wider">
+              🗓️ Vencimento & Vigência do Contrato
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="dia_vencimento" className="label">Dia de Vencimento Mensal</label>
+                <input
+                  id="dia_vencimento"
+                  name="dia_vencimento"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={form.dia_vencimento}
+                  onChange={handleChange}
+                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                  placeholder="Ex: 5, 10, 15, 20"
+                />
+                <p className="text-[10px] text-text-secondary mt-1">Dia do mês (1 a 31) em que a fatura vence.</p>
+              </div>
+
+              <div>
+                <label htmlFor="data_inicio_contrato" className="label">Início do Contrato</label>
+                <input
+                  id="data_inicio_contrato"
+                  name="data_inicio_contrato"
+                  type="date"
+                  value={form.data_inicio_contrato}
+                  onChange={handleChange}
+                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="data_fim_contrato" className="label mb-0">Término do Contrato</label>
+                </div>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    id="chk_indeterminado_novo"
+                    checked={contratoIndeterminado}
+                    onChange={e => {
+                      const checked = e.target.checked
+                      setContratoIndeterminado(checked)
+                      if (checked) {
+                        setForm(prev => ({ ...prev, data_fim_contrato: '' }))
+                      }
+                    }}
+                    className="rounded border-border text-gold focus:ring-gold accent-gold cursor-pointer"
+                  />
+                  <label htmlFor="chk_indeterminado_novo" className="text-[11px] font-bold text-gold cursor-pointer">
+                    Sem término (Contínuo)
+                  </label>
+                </div>
+
+                <input
+                  id="data_fim_contrato"
+                  name="data_fim_contrato"
+                  type="date"
+                  disabled={contratoIndeterminado}
+                  value={form.data_fim_contrato}
+                  onChange={handleChange}
+                  className={`input focus:ring-gold/20 focus:border-gold text-xs ${
+                    contratoIndeterminado ? 'opacity-40 cursor-not-allowed bg-surface-elevated' : ''
+                  }`}
+                />
+                {contratoIndeterminado && (
+                  <p className="text-[10px] text-gold mt-1 font-mono font-bold">♾️ Contrato por tempo indeterminado</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
