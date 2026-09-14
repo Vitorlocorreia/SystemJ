@@ -44,6 +44,8 @@ export default function Sidebar() {
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
+  const nomeLower = profile?.nome?.toLowerCase() || ''
+  const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
 
   const visibleItems = navItems.filter(item => {
     if (isDesign) {
@@ -53,6 +55,10 @@ export default function Sidebar() {
     if (isGestor) {
       // Gestor vê tudo exceto a view específica do design (/design)
       return item.href !== '/design'
+    }
+    if (isMolaOrRennan) {
+      // Mola e Rennan veem Semana, Demandas, Projetos e Configurações
+      return item.href === '/semana' || item.href === '/demandas' || item.href === '/projetos' || item.href === '/configuracoes'
     }
     // Outros roles (filmmaker, tecnologia, etc.) veem Semana, Demandas e Configurações
     return item.href === '/semana' || item.href === '/demandas' || item.href === '/configuracoes'

@@ -9,16 +9,19 @@ export default async function ProjetosPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Only gestores
+  // Gestores, Design e Mola / Rennan
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, nome')
     .eq('user_id', user.id)
     .single()
 
   const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
-  if (!isGestor && !isDesign) redirect('/semana')
+  const nomeLower = profile?.nome?.toLowerCase() || ''
+  const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
+
+  if (!isGestor && !isDesign && !isMolaOrRennan) redirect('/semana')
 
   const [
     { data: projetos },

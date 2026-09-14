@@ -184,7 +184,7 @@ export default function ProjetosKanban({ projetosIniciais, membros, clientes, cu
       {/* Header */}
       <div>
           <h1 className="font-display text-display-md text-text-primary">Projetos</h1>
-          <p className="text-sm text-text-secondary mt-1">Campanhas, contratos e projetos de longa duracao. Apenas gestores.</p>
+          <p className="text-sm text-text-secondary mt-1">Campanhas, contratos e projetos de longa duração.</p>
         </div>
 
       {/* Stats bar */}
