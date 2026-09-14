@@ -22,7 +22,13 @@ import {
   AlertTriangle,
   Play,
   Film,
-  Sparkles
+  Sparkles,
+  Share2,
+  Package,
+  CheckCircle2,
+  Send,
+  Radio,
+  Tv
 } from 'lucide-react'
 import { formatDate, formatCurrency, getInitials } from '@/lib/utils'
 import type { Cliente, StatusCliente, Profile, Tarefa, ChecklistItem, ReferenciaItem } from '@/types'
@@ -40,7 +46,8 @@ interface Props {
   isGestor: boolean
 }
 
-type TabMesa = 'pipeline' | 'notes' | 'checklist' | 'referencias' | 'historico'
+type TabMesa = 'postagens' | 'notes' | 'checklist' | 'referencias' | 'historico'
+type FilterPostagem = 'todas' | 'programados' | 'a_editar' | 'estoque' | 'postados'
 
 export default function MesaClienteView({
   cliente,
@@ -52,7 +59,8 @@ export default function MesaClienteView({
   currentUserId,
   isGestor
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabMesa>('pipeline')
+  const [activeTab, setActiveTab] = useState<TabMesa>('postagens')
+  const [filterPostagem, setFilterPostagem] = useState<FilterPostagem>('todas')
   const [tarefas, setTarefas] = useState<any[]>(tarefasIniciais)
   const [interacoes, setInteracoes] = useState<any[]>(interacoesIniciais)
 
@@ -75,13 +83,61 @@ export default function MesaClienteView({
   const [novoRefTitle, setNovoRefTitle] = useState('')
   const [novoRefUrl, setNovoRefUrl] = useState('')
 
-  // Nova Tarefa no Pipeline do Cliente
+  // Nova Postagem / Vídeo Modal
   const [isNovaPautaOpen, setIsNovaPautaOpen] = useState(false)
   const [novaPautaTitulo, setNovaPautaTitulo] = useState('')
   const [novaPautaDesc, setNovaPautaDesc] = useState('')
   const [novaPautaPrazo, setNovaPautaPrazo] = useState('')
+  const [novaPautaHorario, setNovaPautaHorario] = useState('')
+  const [novaPautaFormato, setNovaPautaFormato] = useState('reels')
+  const [novaPautaPlataforma, setNovaPautaPlataforma] = useState('instagram')
+  const [novaPautaStatus, setNovaPautaStatus] = useState<string>('a_fazer')
   const [novaPautaRespId, setNovaPautaRespId] = useState('')
   const [creatingPauta, setCreatingPauta] = useState(false)
+
+  // Filtered Postagens
+  const postagensFiltradas = useMemo(() => {
+    return tarefas.filter(t => {
+      if (filterPostagem === 'programados') {
+        return t.status === 'programado' || t.data_programacao || (t.status === 'em_andamento' && t.prazo)
+      }
+      if (filterPostagem === 'a_editar') {
+        return t.status === 'a_fazer' || t.status === 'em_andamento'
+      }
+      if (filterPostagem === 'estoque') {
+        return t.tipo_demanda === 'estoque' || t.status === 'estoque'
+      }
+      if (filterPostagem === 'postados') {
+        return t.status === 'concluido'
+      }
+      return true
+    })
+  }, [tarefas, filterPostagem])
+
+  // Handlers para Mudar Status da Postagem em 1 Clique
+  async function handleMudarStatusPostagem(tarefaId: string, novoStatus: string) {
+    setTarefas(prev =>
+      prev.map(t => (t.id === tarefaId ? { ...t, status: novoStatus } : t))
+    )
+
+    const supabase = createClient() as any
+    const { error } = await supabase
+      .from('tarefas')
+      .update({ status: novoStatus })
+      .eq('id', tarefaId)
+
+    if (error) {
+      toast.error('Erro ao atualizar status do vídeo: ' + error.message)
+    } else {
+      const labels: Record<string, string> = {
+        programado: 'Vídeo agendado para publicação! 📅',
+        concluido: 'Vídeo marcado como publicado! 🚀',
+        estoque: 'Vídeo guardado no Estoque do Cliente! 📦',
+        em_andamento: 'Vídeo movido para Em Edição! ✂️'
+      }
+      toast.success(labels[novoStatus] || 'Status atualizado!')
+    }
+  }
 
   // Salvar Notas do Cliente no Supabase
   async function handleSalvarNotas() {
@@ -123,7 +179,7 @@ export default function MesaClienteView({
     setNovoChecklistText('')
     const supabase = createClient() as any
     await supabase.from('clientes').update({ checklist_cliente: updated }).eq('id', cliente.id)
-    toast.success('Item adicionado ao checklist do cliente!')
+    toast.success('Item adicionado ao checklist!')
   }
 
   async function handleDeleteChecklist(id: string) {
@@ -158,7 +214,7 @@ export default function MesaClienteView({
     await supabase.from('clientes').update({ referencias_cliente: updated }).eq('id', cliente.id)
   }
 
-  // Criar Nova Pauta / Vídeo para este cliente
+  // Criar Nova Pauta / Postagem
   async function handleCriarPauta(e: React.FormEvent) {
     e.preventDefault()
     if (!novaPautaTitulo.trim()) return
@@ -166,7 +222,6 @@ export default function MesaClienteView({
     setCreatingPauta(true)
     const supabase = createClient() as any
 
-    // Buscar ou criar projeto do cliente
     let projId = projetos[0]?.id || projetosKanban[0]?.id
     if (!projId) {
       const { data: newProj } = await supabase
@@ -183,10 +238,13 @@ export default function MesaClienteView({
         projeto_id: projId,
         titulo: novaPautaTitulo.trim(),
         descricao: novaPautaDesc.trim() || null,
-        status: 'a_fazer',
+        status: novaPautaStatus,
+        formato_video: novaPautaFormato,
+        plataforma_programada: novaPautaPlataforma,
         responsavel_id: novaPautaRespId || currentUserId,
         responsavel_ids: novaPautaRespId ? [novaPautaRespId] : [currentUserId],
-        prazo: novaPautaPrazo || null
+        prazo: novaPautaPrazo || null,
+        horario_inicio: novaPautaHorario || null
       })
       .select('*, responsavel:profiles(*)')
       .single()
@@ -194,14 +252,15 @@ export default function MesaClienteView({
     setCreatingPauta(false)
 
     if (error) {
-      toast.error('Erro ao criar pauta: ' + error.message)
+      toast.error('Erro ao cadastrar postagem: ' + error.message)
     } else {
       setTarefas(prev => [data, ...prev])
       setNovaPautaTitulo('')
       setNovaPautaDesc('')
       setNovaPautaPrazo('')
+      setNovaPautaHorario('')
       setIsNovaPautaOpen(false)
-      toast.success('Vídeo/Pauta adicionada à mesa do cliente!')
+      toast.success('Vídeo/Postagem adicionada ao cronograma de publicação!')
     }
   }
 
@@ -216,8 +275,8 @@ export default function MesaClienteView({
             <ArrowLeft size={18} />
           </Link>
 
-          {/* Logo / Profile Avatar of Client */}
-          <div className="w-16 h-16 rounded-2xl bg-gold-muted border-2 border-gold/40 flex items-center justify-center shrink-0 overflow-hidden shadow-gold-glow text-gold font-bold font-display text-2xl">
+          {/* Logo / Profile Avatar */}
+          <div className="w-14 h-14 rounded-2xl bg-gold-muted border-2 border-gold/40 flex items-center justify-center shrink-0 overflow-hidden shadow-gold-glow text-gold font-bold font-display text-xl">
             {logoUrl ? (
               <img src={logoUrl} alt={cliente.nome} className="w-full h-full object-cover" />
             ) : (
@@ -227,13 +286,13 @@ export default function MesaClienteView({
 
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-2xl md:text-3xl font-bold text-text-primary">{cliente.nome}</h1>
+              <h1 className="font-display text-2xl font-bold text-text-primary">{cliente.nome}</h1>
               <span className="badge-gold text-xs uppercase tracking-wider font-bold">
                 {cliente.status}
               </span>
             </div>
-            <p className="text-xs text-text-secondary mt-1">
-              Mesa de Conteúdo & Produção Audiovisual • {cliente.segmento || 'Sem segmento'}
+            <p className="text-xs text-text-secondary mt-0.5">
+              Hub de Cronograma & Programação de Publicações • {cliente.segmento || 'Sem segmento'}
             </p>
           </div>
         </div>
@@ -244,25 +303,25 @@ export default function MesaClienteView({
           )}
           <Link href={`/clientes/${cliente.id}/editar`} className="btn-secondary flex items-center gap-2 text-xs py-2">
             <Edit size={14} />
-            <span>Editar Perfil</span>
+            <span>Perfil</span>
           </Link>
-          <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary flex items-center gap-2 text-xs py-2">
+          <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary flex items-center gap-2 text-xs py-2 shadow-gold-glow">
             <Plus size={15} />
-            <span>+ Nova Pauta / Vídeo</span>
+            <span>+ Programar / Cadastrar Vídeo</span>
           </button>
         </div>
       </div>
 
-      {/* Tabs Navigation of the Mesa */}
+      {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-border bg-surface px-4 rounded-xl overflow-x-auto">
         <button
-          onClick={() => setActiveTab('pipeline')}
+          onClick={() => setActiveTab('postagens')}
           className={`py-3.5 px-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'pipeline' ? 'border-gold text-gold' : 'border-transparent text-text-secondary hover:text-text-primary'
+            activeTab === 'postagens' ? 'border-gold text-gold' : 'border-transparent text-text-secondary hover:text-text-primary'
           }`}
         >
-          <Film size={15} />
-          <span>Esteira de Vídeos ({tarefas.length})</span>
+          <Tv size={15} />
+          <span>Cronograma de Publicações ({tarefas.length})</span>
         </button>
 
         <button
@@ -272,7 +331,7 @@ export default function MesaClienteView({
           }`}
         >
           <FileText size={15} />
-          <span>Apple Notes do Cliente</span>
+          <span>Apple Notes & Legendas</span>
         </button>
 
         <button
@@ -306,73 +365,192 @@ export default function MesaClienteView({
         </button>
       </div>
 
-      {/* TAB 1: PIPELINE / ESTEIRA DE VÍDEOS */}
-      {activeTab === 'pipeline' && (
+      {/* TAB 1: CRONOGRAMA DE PUBLICAÇÕES DE VÍDEOS */}
+      {activeTab === 'postagens' && (
         <div className="space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="font-display text-sm font-bold text-text-primary">
-              Demandas e Vídeos Programados do Cliente
-            </h3>
-            <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-1.5 px-3">
-              + Adicionar Pauta
+          {/* Sub-filtros por Status de Publicação */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+              <button
+                onClick={() => setFilterPostagem('todas')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  filterPostagem === 'todas' ? 'bg-gold text-black' : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                Todas as Peças ({tarefas.length})
+              </button>
+              <button
+                onClick={() => setFilterPostagem('programados')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
+                  filterPostagem === 'programados' ? 'bg-gold text-black' : 'bg-surface-elevated text-gold hover:bg-gold/10'
+                }`}
+              >
+                <Calendar size={13} />
+                <span>📅 Programados</span>
+              </button>
+              <button
+                onClick={() => setFilterPostagem('a_editar')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
+                  filterPostagem === 'a_editar' ? 'bg-gold text-black' : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Film size={13} />
+                <span>✂️ Em Edição</span>
+              </button>
+              <button
+                onClick={() => setFilterPostagem('estoque')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
+                  filterPostagem === 'estoque' ? 'bg-gold text-black' : 'bg-surface-elevated text-cyan-400 hover:bg-cyan-400/10'
+                }`}
+              >
+                <Package size={13} />
+                <span>📦 Estoque de Reserva</span>
+              </button>
+              <button
+                onClick={() => setFilterPostagem('postados')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
+                  filterPostagem === 'postados' ? 'bg-gold text-black' : 'bg-surface-elevated text-success hover:bg-success/10'
+                }`}
+              >
+                <CheckCircle2 size={13} />
+                <span>🚀 Postados</span>
+              </button>
+            </div>
+
+            <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-1.5 px-3 whitespace-nowrap">
+              + Cadastrar Vídeo
             </button>
           </div>
 
-          {tarefas.length === 0 ? (
+          {/* Cards de Publicação & Programação */}
+          {postagensFiltradas.length === 0 ? (
             <div className="card text-center py-12 space-y-3">
-              <Film size={32} className="mx-auto text-text-secondary opacity-40" />
-              <p className="text-sm font-medium text-text-primary">Nenhuma pauta ou vídeo agendado para este cliente.</p>
+              <Tv size={36} className="mx-auto text-text-secondary opacity-30" />
+              <p className="text-sm font-medium text-text-primary">Nenhuma postagem cadastrada neste filtro.</p>
               <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-2 px-4 mx-auto">
-                + Criar Primeira Pauta
+                + Programar Nova Postagem
               </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tarefas.map(t => (
-                <div key={t.id} className="card bg-surface-elevated/40 border-border hover:border-gold/30 transition-all space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="badge-secondary text-[9px] uppercase font-bold tracking-wider">
-                      {t.status.replace(/_/g, ' ')}
-                    </span>
-                    {t.prazo && (
-                      <span className="text-[10px] text-gold font-mono flex items-center gap-1">
-                        <Calendar size={10} /> {formatDate(t.prazo)}
-                      </span>
-                    )}
-                  </div>
+              {postagensFiltradas.map(t => {
+                const isProgramado = t.status === 'programado' || t.data_programacao
+                const isPostado = t.status === 'concluido'
+                const isEstoque = t.status === 'estoque' || t.tipo_demanda === 'estoque'
 
-                  <div>
-                    <h4 className="text-sm font-semibold text-text-primary leading-snug">{t.titulo}</h4>
-                    {t.descricao && <p className="text-xs text-text-secondary mt-1 line-clamp-2">{t.descricao}</p>}
-                  </div>
+                return (
+                  <div
+                    key={t.id}
+                    className={`card bg-surface-elevated/40 border transition-all space-y-3.5 relative flex flex-col justify-between ${
+                      isProgramado
+                        ? 'border-gold/50 bg-gold/5 shadow-gold-glow'
+                        : isPostado
+                        ? 'border-success/40 bg-success/5'
+                        : isEstoque
+                        ? 'border-cyan-500/40 bg-cyan-500/5'
+                        : 'border-border hover:border-gold/30'
+                    }`}
+                  >
+                    <div>
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className={`text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                          isProgramado
+                            ? 'bg-gold text-black font-extrabold'
+                            : isPostado
+                            ? 'bg-success/20 text-success border border-success/30 font-bold'
+                            : isEstoque
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold'
+                            : 'bg-surface text-text-secondary border border-border'
+                        }`}>
+                          {isProgramado
+                            ? '📅 PROGRAMADO'
+                            : isPostado
+                            ? '🚀 PUBLICADO'
+                            : isEstoque
+                            ? '📦 ESTOQUE'
+                            : t.status.replace(/_/g, ' ')}
+                        </span>
 
-                  {t.responsavel && (
-                    <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs text-text-secondary">
-                      <User size={12} className="text-gold" />
-                      <span>{t.responsavel.nome}</span>
+                        <span className="text-[9px] font-mono text-gold font-bold uppercase">
+                          {t.plataforma_programada || t.formato_video || 'Reels / TikTok'}
+                        </span>
+                      </div>
+
+                      {/* Title & Description */}
+                      <h4 className="text-sm font-semibold text-text-primary leading-snug">{t.titulo}</h4>
+                      {t.descricao && <p className="text-xs text-text-secondary mt-1.5 line-clamp-2">{t.descricao}</p>}
+
+                      {/* Agendamento Date & Time info */}
+                      {t.prazo && (
+                        <div className="mt-3 p-2 rounded-lg bg-surface border border-border/60 flex items-center justify-between text-[11px]">
+                          <span className="text-text-secondary font-bold uppercase text-[9px]">Data da Postagem:</span>
+                          <span className="font-mono font-bold text-gold flex items-center gap-1">
+                            <Clock size={11} />
+                            {formatDate(t.prazo)} {t.horario_inicio ? `às ${t.horario_inicio.slice(0, 5)}` : ''}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Quick Status Action Controls */}
+                    <div className="pt-2 border-t border-border/40 space-y-2">
+                      <div className="flex items-center justify-between gap-1 text-[10px]">
+                        <span className="text-text-secondary">Mudar Status:</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleMudarStatusPostagem(t.id, 'programado')}
+                            className="px-2 py-1 rounded bg-gold/20 hover:bg-gold text-gold hover:text-black font-bold transition-all"
+                            title="Marcar como Programado"
+                          >
+                            📅 Programar
+                          </button>
+                          <button
+                            onClick={() => handleMudarStatusPostagem(t.id, 'estoque')}
+                            className="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500 text-cyan-400 hover:text-black font-bold transition-all"
+                            title="Mover para Estoque de Reserva"
+                          >
+                            📦 Estoque
+                          </button>
+                          <button
+                            onClick={() => handleMudarStatusPostagem(t.id, 'concluido')}
+                            className="px-2 py-1 rounded bg-success/20 hover:bg-success text-success hover:text-black font-bold transition-all"
+                            title="Marcar como Postado"
+                          >
+                            🚀 Postado
+                          </button>
+                        </div>
+                      </div>
+
+                      {t.responsavel && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-text-secondary">
+                          <User size={11} className="text-gold" />
+                          <span>Editor / Responsável: {t.responsavel.nome}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: APPLE NOTES DO CLIENTE (ENGINE DE 3 COLUNAS) */}
+      {/* TAB 2: APPLE NOTES & LEGENDAS */}
       {activeTab === 'notes' && (
         <div className="card p-0 overflow-hidden animate-fade-in border border-border rounded-2xl">
           <div className="p-4 border-b border-border bg-surface flex items-center justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-2">
-                <FileText size={16} className="text-gold" /> Apple Notes Engine da Mesa de {cliente.nome}
+                <FileText size={16} className="text-gold" /> Apple Notes & Rascunho de Legendas de {cliente.nome}
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                Organização em 3 colunas (Pastas, Lista e Editor Rico com checklists, anexos e autosave)
+                Espaço para copywriter, storymaker e editor rascunharem legendas, orientações e roteiros
               </p>
             </div>
             <button onClick={handleSalvarNotas} disabled={savingNotas} className="btn-primary text-xs py-1.5 px-4">
-              {savingNotas ? 'Salvando...' : 'Salvar Alterações'}
+              {savingNotas ? 'Salvando...' : 'Salvar Legendas'}
             </button>
           </div>
 
@@ -382,18 +560,18 @@ export default function MesaClienteView({
               value={notasCliente}
               onChange={e => setNotasCliente(e.target.value)}
               className="w-full bg-[#121212] border border-[#2A2A2A] rounded-2xl p-5 text-sm text-[#E0E0E0] placeholder-text-secondary/40 font-mono leading-relaxed focus:outline-none focus:border-gold/50 resize-none"
-              placeholder={"- Tom de voz e identidade visual do cliente...\n- Roteiros da semana:\n  1. Vídeo de abertura de treino\n  2. Entrevista com atleta\n- Links de inspiração..."}
+              placeholder={"- Legenda para o Reels de Segunda:\n  🔥 Bastidores do treino pesado...\n  #futebol #treino #jotaesportivo\n\n- Tom de voz e hashtags do cliente..."}
             />
           </div>
         </div>
       )}
 
-      {/* TAB 3: CHECKLIST DE ENTREGÁVEIS */}
+      {/* TAB 3: CHECKLIST DE PRODUÇÃO */}
       {activeTab === 'checklist' && (
         <div className="card space-y-5 animate-fade-in">
           <div>
             <h3 className="font-display text-sm font-bold text-text-primary">Checklist de Produção & Entregáveis</h3>
-            <p className="text-xs text-text-secondary mt-0.5">Lista de itens e conteúdos que devem ser gravados/entregues para este cliente</p>
+            <p className="text-xs text-text-secondary mt-0.5">Lista de conteúdos e especificações que devem ser postados/entregues para este cliente</p>
           </div>
 
           <form onSubmit={handleAddChecklist} className="flex gap-2">
@@ -517,18 +695,18 @@ export default function MesaClienteView({
         </div>
       )}
 
-      {/* Modal Nova Pauta / Vídeo */}
+      {/* Modal Nova Postagem / Vídeo */}
       {isNovaPautaOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-surface border border-border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4 animate-scale-in">
-            <h3 className="font-display text-lg font-bold text-text-primary">Adicionar Pauta à Mesa do Cliente</h3>
+            <h3 className="font-display text-lg font-bold text-text-primary">Programar Nova Postagem de Vídeo</h3>
             <form onSubmit={handleCriarPauta} className="space-y-4">
               <div>
-                <label className="label">Título do Vídeo / Job *</label>
+                <label className="label">Título do Vídeo / Conteúdo *</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Vídeo de treino em pé com CTA"
+                  placeholder="Ex: Reels do Gol de Placa - Bastidores"
                   value={novaPautaTitulo}
                   onChange={e => setNovaPautaTitulo(e.target.value)}
                   className="input"
@@ -536,10 +714,10 @@ export default function MesaClienteView({
               </div>
 
               <div>
-                <label className="label">Descrição / Roteiro Rápido</label>
+                <label className="label">Descrição / Roteiro / Legenda</label>
                 <textarea
-                  rows={3}
-                  placeholder="Instruções de captação e estilo..."
+                  rows={2}
+                  placeholder="Instruções de edição, hashtags ou observações..."
                   value={novaPautaDesc}
                   onChange={e => setNovaPautaDesc(e.target.value)}
                   className="input resize-none"
@@ -548,7 +726,37 @@ export default function MesaClienteView({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Data Prevista</label>
+                  <label className="label">Rede Social / Formato</label>
+                  <select
+                    value={novaPautaPlataforma}
+                    onChange={e => setNovaPautaPlataforma(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="instagram">Instagram Reels 📸</option>
+                    <option value="tiktok">TikTok 🎵</option>
+                    <option value="stories">Stories 📲</option>
+                    <option value="youtube">YouTube Shorts 📹</option>
+                    <option value="carrossel">Carrossel / Post 🖼️</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Status Inicial</label>
+                  <select
+                    value={novaPautaStatus}
+                    onChange={e => setNovaPautaStatus(e.target.value)}
+                    className="input text-xs"
+                  >
+                    <option value="em_andamento">✂️ Em Edição</option>
+                    <option value="programado">📅 Programado (Agendado)</option>
+                    <option value="estoque">📦 Guardado em Estoque</option>
+                    <option value="concluido">🚀 Já Publicado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Data de Postagem</label>
                   <input
                     type="date"
                     value={novaPautaPrazo}
@@ -557,15 +765,14 @@ export default function MesaClienteView({
                   />
                 </div>
                 <div>
-                  <label className="label">Responsável</label>
-                  <select
-                    value={novaPautaRespId}
-                    onChange={e => setNovaPautaRespId(e.target.value)}
+                  <label className="label">Horário de Agendamento</label>
+                  <input
+                    type="time"
+                    value={novaPautaHorario}
+                    onChange={e => setNovaPautaHorario(e.target.value)}
                     className="input text-xs"
-                  >
-                    <option value="">Você mesmo</option>
-                    {membros.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
-                  </select>
+                    placeholder="18:00"
+                  />
                 </div>
               </div>
 
@@ -573,8 +780,8 @@ export default function MesaClienteView({
                 <button type="button" onClick={() => setIsNovaPautaOpen(false)} className="btn-ghost text-xs py-2 px-4">
                   Cancelar
                 </button>
-                <button type="submit" disabled={creatingPauta} className="btn-primary text-xs py-2 px-4">
-                  {creatingPauta ? 'Criando...' : 'Adicionar Pauta'}
+                <button type="submit" disabled={creatingPauta} className="btn-primary text-xs py-2 px-4 shadow-gold-glow">
+                  {creatingPauta ? 'Cadastrando...' : 'Cadastrar Postagem'}
                 </button>
               </div>
             </form>
