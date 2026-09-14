@@ -4,7 +4,8 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare, CheckSquare, FileText, Link2, ExternalLink, Check, Copy } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare, CheckSquare, FileText, Link2, ExternalLink, Check, Copy, Building2 } from 'lucide-react'
 import { formatDate, getInitials } from '@/lib/utils'
 import type { Tarefa, StatusTarefa, Profile, ClientePublico, ChecklistItem, ReferenciaItem } from '@/types'
 
@@ -804,6 +805,102 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             )}
           </div>
         )}
+      </div>
+
+      {/* Hub Exposto de Clientes da Semana (Mesa por Cliente) */}
+      <div className="bg-surface border border-border rounded-xl p-4 space-y-3 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-gold" />
+            <h2 className="font-display text-sm font-bold text-text-primary">
+              Clientes da Semana — Mesa por Cliente Exposta
+            </h2>
+            <span className="text-[10px] bg-gold-muted text-gold border border-gold/20 px-2 py-0.5 rounded-full font-bold">
+              {clientes.length} Clientes
+            </span>
+          </div>
+          {selectedCliente !== 'todos' && (
+            <button
+              onClick={() => setSelectedCliente('todos')}
+              className="text-xs text-gold hover:underline flex items-center gap-1 font-medium"
+            >
+              <span>Limpar Filtro ({clientes.find(c => c.id === selectedCliente)?.nome})</span>
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {clientes.map(c => {
+            const tarefasDoCliente = tarefas.filter(t => t.projeto?.cliente?.id === c.id)
+            const tarefasSemana = tarefasDoCliente.filter(t => weekDates.some(d => d.dateStr === t.prazo))
+            const proximaDemanda = tarefasSemana[0] || tarefasDoCliente[0]
+            const isSelected = selectedCliente === c.id
+
+            return (
+              <div
+                key={c.id}
+                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative ${
+                  isSelected
+                    ? 'border-gold bg-gold/10 shadow-gold-glow'
+                    : 'border-border/70 bg-surface-elevated/40 hover:border-gold/30 hover:bg-surface-elevated'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="font-semibold text-text-primary text-xs truncate group-hover:text-gold transition-colors">
+                      {c.nome}
+                    </span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      tarefasSemana.length > 0
+                        ? 'bg-gold-muted text-gold border border-gold/30'
+                        : 'bg-surface text-text-secondary border border-border'
+                    }`}>
+                      {tarefasSemana.length} {tarefasSemana.length === 1 ? 'vídeo' : 'vídeos'}
+                    </span>
+                  </div>
+
+                  {/* Demanda Atual na Semana */}
+                  {proximaDemanda ? (
+                    <div className="text-[10px] text-text-secondary bg-surface/60 rounded-lg p-2 border border-border/40 mt-1">
+                      <span className="text-[9px] font-bold text-gold uppercase block mb-0.5">
+                        Demanda Atual na Semana:
+                      </span>
+                      <p className="font-medium text-text-primary truncate">{proximaDemanda.titulo}</p>
+                      {proximaDemanda.prazo && (
+                        <p className="text-[9px] text-text-secondary mt-0.5">
+                          {formatDate(proximaDemanda.prazo)} {proximaDemanda.horario_inicio ? `• ${proximaDemanda.horario_inicio.slice(0, 5)}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-secondary/50 italic mt-1 py-1">Sem demandas nesta semana</p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2">
+                  <button
+                    onClick={() => setSelectedCliente(isSelected ? 'todos' : c.id)}
+                    className={`font-semibold py-1 px-2.5 rounded-md transition-colors ${
+                      isSelected
+                        ? 'bg-gold text-black font-bold'
+                        : 'bg-surface border border-border text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    {isSelected ? '✓ Filtrado' : 'Filtrar Semana'}
+                  </button>
+                  <Link
+                    href={`/clientes/${c.id}`}
+                    className="text-gold hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <span>Abrir Mesa</span>
+                    <ExternalLink size={10} />
+                  </Link>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Week Navigator & Filters */}
