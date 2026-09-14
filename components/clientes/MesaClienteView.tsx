@@ -49,6 +49,26 @@ interface Props {
 type TabMesa = 'postagens' | 'notes' | 'checklist' | 'referencias' | 'historico'
 type FilterPostagem = 'todas' | 'programados' | 'a_editar' | 'estoque' | 'postados'
 
+function getMonday(d: Date) {
+  const date = new Date(d)
+  const day = date.getDay()
+  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
+  return new Date(date.setDate(diff))
+}
+
+function addDays(d: Date, days: number) {
+  const date = new Date(d)
+  date.setDate(date.getDate() + days)
+  return date
+}
+
+function formatYYYYMMDD(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function MesaClienteView({
   cliente,
   projetos,
@@ -63,6 +83,9 @@ export default function MesaClienteView({
   const [filterPostagem, setFilterPostagem] = useState<FilterPostagem>('todas')
   const [tarefas, setTarefas] = useState<any[]>(tarefasIniciais)
   const [interacoes, setInteracoes] = useState<any[]>(interacoesIniciais)
+
+  // Datas da semana atual
+  const mondayStr = useMemo(() => formatYYYYMMDD(getMonday(new Date())), [])
 
   // Apple Notes do Cliente
   const [notasCliente, setNotasCliente] = useState<string>(
@@ -96,9 +119,26 @@ export default function MesaClienteView({
   const [creatingPauta, setCreatingPauta] = useState(false)
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
 
-  // Filtered Postagens
-  const postagensFiltradas = useMemo(() => {
+  // 1. Postagens da Semana Atual (Cronograma da Semana)
+  const postagensSemanaAtual = useMemo(() => {
     return tarefas.filter(t => {
+      // Se já foi postado (concluido) e a data/prazo é anterior a esta semana, vai pro Histórico
+      const isPostadoAntigo = t.status === 'concluido' && t.prazo && t.prazo < mondayStr
+      if (isPostadoAntigo) return false
+      return true
+    })
+  }, [tarefas, mondayStr])
+
+  // 2. Postagens Antigas Concluídas para a Aba Histórico
+  const postagensAntigasHistorico = useMemo(() => {
+    return tarefas.filter(t => {
+      return t.status === 'concluido' && (!t.prazo || t.prazo < mondayStr)
+    })
+  }, [tarefas, mondayStr])
+
+  // Postagens filtradas na aba Cronograma (Apenas da Semana Atual)
+  const postagensFiltradas = useMemo(() => {
+    return postagensSemanaAtual.filter(t => {
       // 1. Filtro por Responsável
       const matchMembro =
         selectedMembro === 'todos' ||
@@ -122,7 +162,7 @@ export default function MesaClienteView({
       }
       return true
     })
-  }, [tarefas, filterPostagem, selectedMembro])
+  }, [postagensSemanaAtual, filterPostagem, selectedMembro])
 
   // Handlers para Mudar Status da Postagem em 1 Clique
   async function handleMudarStatusPostagem(tarefaId: string, novoStatus: string) {
@@ -721,29 +761,65 @@ export default function MesaClienteView({
         </div>
       )}
 
-      {/* TAB 5: HISTÓRICO & INTERAÇÕES */}
+      {/* TAB 5: HISTÓRICO DE PUBLICAÇÕES ANTIGAS & INTERAÇÕES */}
       {activeTab === 'historico' && (
-        <div className="card space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <h3 className="font-display text-sm font-bold text-text-primary">Linha do Tempo de Interações</h3>
-            <RegistrarInteracaoModal clienteId={cliente.id} clienteNome={cliente.nome} />
+        <div className="space-y-6 animate-fade-in">
+          {/* Seção 1: Publicações Antigas Concluídas em Semanas Anteriores */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-success" /> Publicações Antigas Concluídas ({postagensAntigasHistorico.length})
+                </h3>
+                <p className="text-xs text-text-secondary mt-0.5">Histórico de vídeos postados em semanas anteriores</p>
+              </div>
+            </div>
+
+            {postagensAntigasHistorico.length === 0 ? (
+              <p className="text-xs text-text-secondary italic py-6 text-center">Nenhuma publicação antiga arquivada ainda.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {postagensAntigasHistorico.map(p => (
+                  <div key={p.id} className="p-3 rounded-xl bg-surface-elevated/40 border border-success/30 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="badge-success text-[9px] font-bold uppercase">🚀 PUBLICADO</span>
+                      <span className="text-[10px] text-text-secondary font-mono">{formatDate(p.prazo)}</span>
+                    </div>
+                    <h4 className="text-xs font-semibold text-text-primary truncate">{p.titulo}</h4>
+                    {p.responsavel && (
+                      <p className="text-[10px] text-text-secondary">Editor: {p.responsavel.nome}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {interacoes.length === 0 ? (
-            <p className="text-xs text-text-secondary italic py-6 text-center">Nenhum registro de contato ou reunião.</p>
-          ) : (
-            <div className="space-y-4 pt-2">
-              {interacoes.map(i => (
-                <div key={i.id} className="p-4 rounded-xl bg-surface-elevated border border-border/60 space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-gold">{i.autor?.nome || 'Usuário'}</span>
-                    <span className="text-text-secondary">{formatDate(i.created_at)}</span>
-                  </div>
-                  <p className="text-sm text-text-primary whitespace-pre-line leading-relaxed">{i.descricao}</p>
-                </div>
-              ))}
+          {/* Seção 2: Linha do Tempo de Interações */}
+          <div className="card space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-2">
+                <MessageSquare size={16} className="text-gold" /> Linha do Tempo de Reuniões & Contatos
+              </h3>
+              <RegistrarInteracaoModal clienteId={cliente.id} clienteNome={cliente.nome} />
             </div>
-          )}
+
+            {interacoes.length === 0 ? (
+              <p className="text-xs text-text-secondary italic py-6 text-center">Nenhum registro de contato ou reunião.</p>
+            ) : (
+              <div className="space-y-3 pt-1">
+                {interacoes.map(i => (
+                  <div key={i.id} className="p-3.5 rounded-xl bg-surface-elevated border border-border/60 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gold">{i.autor?.nome || 'Usuário'}</span>
+                      <span className="text-text-secondary text-[10px]">{formatDate(i.created_at)}</span>
+                    </div>
+                    <p className="text-xs text-text-primary whitespace-pre-line leading-relaxed">{i.descricao}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
