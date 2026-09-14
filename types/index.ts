@@ -36,6 +36,8 @@ export interface Cliente {
   dia_vencimento?: number | null
   forma_pagamento?: string | null
   empresa?: EmpresaGrupo | string
+  logo_url?: string | null
+  avatar_url?: string | null
   criado_por: string | null
   created_at: string
 }
@@ -53,6 +55,8 @@ export interface ClientePublico {
   dia_vencimento?: number | null
   forma_pagamento?: string | null
   empresa?: EmpresaGrupo | string
+  logo_url?: string | null
+  avatar_url?: string | null
   created_at: string
 }
 

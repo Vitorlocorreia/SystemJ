@@ -858,9 +858,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="font-semibold text-text-primary text-xs truncate group-hover:text-gold transition-colors">
-                      {c.nome}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-xl bg-gold-muted border border-gold/30 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 overflow-hidden shadow-sm">
+                        {c.logo_url || c.avatar_url ? (
+                          <img src={c.logo_url || c.avatar_url || ''} alt={c.nome} className="w-full h-full object-cover" />
+                        ) : (
+                          getInitials(c.nome)
+                        )}
+                      </div>
+                      <span className="font-semibold text-text-primary text-xs truncate group-hover:text-gold transition-colors">
+                        {c.nome}
+                      </span>
+                    </div>
                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                       tarefasSemana.length > 0
                         ? 'bg-gold-muted text-gold border border-gold/30'

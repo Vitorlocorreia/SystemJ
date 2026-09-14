@@ -27,6 +27,8 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
     valor_contrato: cliente.valor_contrato ? String(cliente.valor_contrato) : '',
   })
 
+  const [logoUrl, setLogoUrl] = useState(cliente.logo_url || cliente.avatar_url || '')
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
@@ -82,6 +84,8 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
         segmento: form.segmento || null,
         status: form.status,
         valor_contrato: form.valor_contrato ? parseFloat(form.valor_contrato.replace(',', '.')) : null,
+        logo_url: logoUrl || null,
+        avatar_url: logoUrl || null,
       })
       .eq('id', cliente.id)
 
@@ -105,6 +109,30 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
       </div>
 
       <form onSubmit={handleSubmit} className="card space-y-5">
+        {/* Seção de Ícone / Foto de Perfil do Cliente */}
+        <div className="p-4 bg-surface-elevated rounded-xl border border-border space-y-3">
+          <label className="label text-text-primary">Ícone / Logo do Cliente (Perfil)</label>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-gold font-bold font-display text-xl">
+              {logoUrl ? (
+                <img src={logoUrl} alt={form.nome} className="w-full h-full object-cover" />
+              ) : (
+                (form.nome.substring(0, 2) || 'CL').toUpperCase()
+              )}
+            </div>
+            <div className="flex-1 space-y-1">
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={e => setLogoUrl(e.target.value)}
+                placeholder="Cole a URL da logo/foto (https://...)"
+                className="input text-xs"
+              />
+              <p className="text-[10px] text-text-secondary">O ícone/logo aparecerá nos cards da semana, mesa e relatórios.</p>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="sm:col-span-2">
             <label htmlFor="nome" className="label">Nome *</label>
