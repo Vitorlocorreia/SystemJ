@@ -47,6 +47,14 @@ interface Props {
   isGestor: boolean
 }
 
+interface KanbanColunaConfig {
+  id: string
+  label: string
+  borderTop: string
+  headerBg: string
+  cardBg: string
+}
+
 type TabMesa = 'postagens' | 'notes' | 'checklist' | 'referencias' | 'historico'
 type FilterPostagem = 'todas' | 'programados' | 'a_editar' | 'estoque' | 'postados'
 
@@ -119,13 +127,81 @@ export default function MesaClienteView({
   const [novaPautaRespId, setNovaPautaRespId] = useState('')
   const [creatingPauta, setCreatingPauta] = useState(false)
   const [selectedMembro, setSelectedMembro] = useState<string>('todos')
-  const KANBAN_POSTAGENS_COLUNAS = [
-    { id: 'a_fazer', label: '📌 A Gravar / Pauta', borderTop: 'border-t-amber-500', headerBg: 'text-amber-400', cardBg: 'bg-amber-500/10 border-amber-500/30' },
-    { id: 'em_andamento', label: '✂️ Em Edição', borderTop: 'border-t-blue-500', headerBg: 'text-blue-400', cardBg: 'bg-blue-500/10 border-blue-500/30' },
-    { id: 'programado', label: '📅 Programado', borderTop: 'border-t-gold', headerBg: 'text-gold', cardBg: 'bg-gold/15 border-gold/50 shadow-gold-glow' },
-    { id: 'estoque', label: '📦 Estoque Reserva', borderTop: 'border-t-purple-500', headerBg: 'text-purple-400', cardBg: 'bg-purple-500/10 border-purple-500/30' },
-    { id: 'concluido', label: '🚀 Postado', borderTop: 'border-t-emerald-500', headerBg: 'text-emerald-400', cardBg: 'bg-emerald-500/10 border-emerald-500/30' },
-  ]
+  // Configuração Dinâmica das Colunas do Kanban
+  const [kanbanColunas, setKanbanColunas] = useState<KanbanColunaConfig[]>(() => {
+    const custom = (cliente as any).kanban_colunas_custom
+    if (custom && Array.isArray(custom) && custom.length > 0) return custom
+    return [
+      { id: 'a_fazer', label: '📌 A Gravar / Pauta', borderTop: 'border-t-amber-500', headerBg: 'text-amber-400', cardBg: 'bg-amber-500/10 border-amber-500/30' },
+      { id: 'em_andamento', label: '✂️ Em Edição', borderTop: 'border-t-blue-500', headerBg: 'text-blue-400', cardBg: 'bg-blue-500/10 border-blue-500/30' },
+      { id: 'programado', label: '📅 Programado', borderTop: 'border-t-gold', headerBg: 'text-gold', cardBg: 'bg-gold/15 border-gold/50 shadow-gold-glow' },
+      { id: 'concluido', label: '🚀 Postado', borderTop: 'border-t-emerald-500', headerBg: 'text-emerald-400', cardBg: 'bg-emerald-500/10 border-emerald-500/30' },
+    ]
+  })
+
+  const [editingColId, setEditingColId] = useState<string | null>(null)
+  const [editingColLabel, setEditingColLabel] = useState('')
+  const [isNovaColunaModalOpen, setIsNovaColunaModalOpen] = useState(false)
+  const [novaColunaNome, setNovaColunaNome] = useState('')
+
+  // Salvar Colunas no Supabase
+  async function saveColunas(updatedCols: KanbanColunaConfig[]) {
+    setKanbanColunas(updatedCols)
+    const supabase = createClient() as any
+    await supabase.from('clientes').update({ kanban_colunas_custom: updatedCols }).eq('id', cliente.id)
+  }
+
+  // Renomear Coluna
+  function handleRenameColuna(colId: string) {
+    if (!editingColLabel.trim()) {
+      setEditingColId(null)
+      return
+    }
+    const updated = kanbanColunas.map(c =>
+      c.id === colId ? { ...c, label: editingColLabel.trim() } : c
+    )
+    saveColunas(updated)
+    setEditingColId(null)
+    toast.success('Nome da coluna atualizado!')
+  }
+
+  // Adicionar Nova Coluna
+  function handleAddNovaColuna(e: React.FormEvent) {
+    e.preventDefault()
+    if (!novaColunaNome.trim()) return
+
+    const newColId = 'col_' + crypto.randomUUID().slice(0, 8)
+    const presets = [
+      { borderTop: 'border-t-purple-500', headerBg: 'text-purple-400', cardBg: 'bg-purple-500/10 border-purple-500/30' },
+      { borderTop: 'border-t-cyan-500', headerBg: 'text-cyan-400', cardBg: 'bg-cyan-500/10 border-cyan-500/30' },
+      { borderTop: 'border-t-rose-500', headerBg: 'text-rose-400', cardBg: 'bg-rose-500/10 border-rose-500/30' },
+      { borderTop: 'border-t-indigo-500', headerBg: 'text-indigo-400', cardBg: 'bg-indigo-500/10 border-indigo-500/30' },
+    ]
+    const color = presets[kanbanColunas.length % presets.length]
+
+    const newCol: KanbanColunaConfig = {
+      id: newColId,
+      label: novaColunaNome.trim(),
+      ...color
+    }
+
+    const updated = [...kanbanColunas, newCol]
+    saveColunas(updated)
+    setNovaColunaNome('')
+    setIsNovaColunaModalOpen(false)
+    toast.success(`Nova coluna "${novaColunaNome}" criada!`)
+  }
+
+  // Excluir Coluna
+  function handleDeleteColuna(colId: string) {
+    if (kanbanColunas.length <= 1) {
+      toast.error('Você deve ter pelo menos 1 coluna!')
+      return
+    }
+    const updated = kanbanColunas.filter(c => c.id !== colId)
+    saveColunas(updated)
+    toast.success('Coluna removida!')
+  }
 
   async function onKanbanDragEnd(result: DropResult) {
     if (!result.destination) return
@@ -516,15 +592,6 @@ export default function MesaClienteView({
                 <span>✂️ Em Edição</span>
               </button>
               <button
-                onClick={() => setFilterPostagem('estoque')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
-                  filterPostagem === 'estoque' ? 'bg-gold text-black' : 'bg-surface-elevated text-cyan-400 hover:bg-cyan-400/10'
-                }`}
-              >
-                <Package size={13} />
-                <span>📦 Estoque de Reserva</span>
-              </button>
-              <button
                 onClick={() => setFilterPostagem('postados')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
                   filterPostagem === 'postados' ? 'bg-gold text-black' : 'bg-surface-elevated text-success hover:bg-success/10'
@@ -535,38 +602,91 @@ export default function MesaClienteView({
               </button>
             </div>
 
-            <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-1.5 px-3 whitespace-nowrap">
-              + Cadastrar Vídeo
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsNovaColunaModalOpen(true)}
+                className="btn-secondary text-xs py-1.5 px-3 whitespace-nowrap flex items-center gap-1"
+              >
+                <Plus size={14} />
+                <span>+ Nova Coluna</span>
+              </button>
+              <button onClick={() => setIsNovaPautaOpen(true)} className="btn-primary text-xs py-1.5 px-3 whitespace-nowrap shadow-gold-glow">
+                + Cadastrar Vídeo
+              </button>
+            </div>
           </div>
 
-          {/* Kanban Board Trello / Post-it Style */}
+          {/* Kanban Board Trello / Post-it Style — Dynamic & Fully Responsive */}
           <DragDropContext onDragEnd={onKanbanDragEnd}>
-            <div className="flex gap-4 overflow-x-auto pb-4 pt-1 select-none min-w-[1100px] xl:min-w-0">
-              {KANBAN_POSTAGENS_COLUNAS.map(col => {
+            <div className="flex gap-4 overflow-x-auto pb-4 pt-1 select-none w-full scrollbar-thin">
+              {kanbanColunas.map((col, colIdx) => {
                 const colTasks = postagensFiltradas.filter(t => {
                   if (col.id === 'programado') {
                     return t.status === 'programado' || (t.status === 'em_andamento' && t.data_programacao)
                   }
-                  if (col.id === 'estoque') {
-                    return t.status === 'estoque' || t.tipo_demanda === 'estoque'
-                  }
                   return t.status === col.id
                 })
+
+                const isEditing = editingColId === col.id
 
                 return (
                   <div
                     key={col.id}
-                    className={`flex-1 min-w-[240px] max-w-[300px] bg-surface border border-border/80 rounded-2xl flex flex-col overflow-hidden shadow-lg border-t-4 ${col.borderTop}`}
+                    className={`flex-1 min-w-[240px] max-w-[320px] bg-surface border border-border/80 rounded-2xl flex flex-col overflow-hidden shadow-lg border-t-4 ${col.borderTop}`}
                   >
-                    {/* Header da Coluna Kanban */}
+                    {/* Header da Coluna Kanban (Editável) */}
                     <div className="p-3 border-b border-border/60 flex items-center justify-between bg-surface-elevated/40">
-                      <span className={`font-display text-xs font-bold ${col.headerBg}`}>
-                        {col.label}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold bg-surface px-2 py-0.5 rounded-full border border-border">
-                        {colTasks.length}
-                      </span>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          autoFocus
+                          value={editingColLabel}
+                          onChange={e => setEditingColLabel(e.target.value)}
+                          onBlur={() => handleRenameColuna(col.id)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') handleRenameColuna(col.id)
+                          }}
+                          className="input py-0.5 px-2 text-xs bg-surface border-gold font-bold w-[140px]"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            onClick={() => {
+                              setEditingColId(col.id)
+                              setEditingColLabel(col.label)
+                            }}
+                            className={`font-display text-xs font-bold truncate cursor-pointer hover:underline ${col.headerBg}`}
+                            title="Clique para renomear a coluna"
+                          >
+                            {col.label}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setEditingColId(col.id)
+                              setEditingColLabel(col.label)
+                            }}
+                            className="text-text-secondary hover:text-gold p-0.5 opacity-40 hover:opacity-100"
+                            title="Renomear Coluna"
+                          >
+                            <Edit size={11} />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-mono font-bold bg-surface px-2 py-0.5 rounded-full border border-border">
+                          {colTasks.length}
+                        </span>
+                        {kanbanColunas.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteColuna(col.id)}
+                            className="text-text-secondary hover:text-danger p-1 opacity-30 hover:opacity-100 transition-opacity"
+                            title="Excluir Coluna"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Droppable Area */}
@@ -642,17 +762,12 @@ export default function MesaClienteView({
 
                                       {/* Botões Rápidos de Mudança de Status */}
                                       <div className="flex items-center gap-1">
-                                        {col.id !== 'a_fazer' && (
+                                        {colIdx > 0 && (
                                           <button
                                             onClick={e => {
                                               e.stopPropagation()
-                                              const prevCols: Record<string, string> = {
-                                                em_andamento: 'a_fazer',
-                                                programado: 'em_andamento',
-                                                estoque: 'programado',
-                                                concluido: 'estoque'
-                                              }
-                                              handleMudarStatusPostagem(t.id, prevCols[col.id] || 'a_fazer')
+                                              const prevCol = kanbanColunas[colIdx - 1]
+                                              if (prevCol) handleMudarStatusPostagem(t.id, prevCol.id)
                                             }}
                                             className="px-1.5 py-0.5 rounded bg-surface hover:bg-surface-elevated text-text-secondary hover:text-text-primary transition-all font-bold"
                                             title="Voltar Coluna"
@@ -660,17 +775,12 @@ export default function MesaClienteView({
                                             ◀
                                           </button>
                                         )}
-                                        {col.id !== 'concluido' && (
+                                        {colIdx < kanbanColunas.length - 1 && (
                                           <button
                                             onClick={e => {
                                               e.stopPropagation()
-                                              const nextCols: Record<string, string> = {
-                                                a_fazer: 'em_andamento',
-                                                em_andamento: 'programado',
-                                                programado: 'estoque',
-                                                estoque: 'concluido'
-                                              }
-                                              handleMudarStatusPostagem(t.id, nextCols[col.id] || 'concluido')
+                                              const nextCol = kanbanColunas[colIdx + 1]
+                                              if (nextCol) handleMudarStatusPostagem(t.id, nextCol.id)
                                             }}
                                             className="px-1.5 py-0.5 rounded bg-gold/20 hover:bg-gold text-gold hover:text-black font-bold transition-all"
                                             title="Avançar Coluna"
@@ -692,6 +802,17 @@ export default function MesaClienteView({
                   </div>
                 )
               })}
+
+              {/* Botão Adicionar Coluna no final do Kanban */}
+              <button
+                onClick={() => setIsNovaColunaModalOpen(true)}
+                className="flex-1 min-w-[200px] max-w-[240px] h-[350px] rounded-2xl border border-dashed border-border/60 hover:border-gold/50 bg-surface/30 hover:bg-surface-elevated/40 flex flex-col items-center justify-center gap-2 text-text-secondary hover:text-gold transition-all shrink-0 cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-gold">
+                  <Plus size={20} />
+                </div>
+                <span className="text-xs font-bold">+ Criar Nova Coluna</span>
+              </button>
             </div>
           </DragDropContext>
         </div>
@@ -978,6 +1099,39 @@ export default function MesaClienteView({
                 </button>
                 <button type="submit" disabled={creatingPauta} className="btn-primary text-xs py-2 px-4 shadow-gold-glow">
                   {creatingPauta ? 'Cadastrando...' : 'Cadastrar Postagem'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Criar Nova Coluna */}
+      {isNovaColunaModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-border w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4 animate-scale-in">
+            <h3 className="font-display text-base font-bold text-text-primary flex items-center gap-2">
+              <Plus size={18} className="text-gold" /> Criar Nova Coluna no Kanban
+            </h3>
+            <form onSubmit={handleAddNovaColuna} className="space-y-4">
+              <div>
+                <label className="label">Nome da Coluna *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Em Validação pelo Cliente, Rascunhos..."
+                  value={novaColunaNome}
+                  onChange={e => setNovaColunaNome(e.target.value)}
+                  className="input text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsNovaColunaModalOpen(false)} className="btn-ghost text-xs py-2 px-4">
+                  Cancelar
+                </button>
+                <button type="submit" className="btn-primary text-xs py-2 px-4 shadow-gold-glow">
+                  Criar Coluna
                 </button>
               </div>
             </form>
