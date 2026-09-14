@@ -79,9 +79,23 @@ export interface Projeto {
   responsavel?: Profile | null
 }
 
+export interface ChecklistItem {
+  id: string
+  texto: string
+  concluido: boolean
+}
+
+export interface ReferenciaItem {
+  id: string
+  titulo: string
+  url: string
+  observacao?: string
+}
+
 export interface Tarefa {
   id: string
   projeto_id: string
+  cliente_id?: string | null
   titulo: string
   descricao: string | null
   status: StatusTarefa
@@ -94,6 +108,13 @@ export interface Tarefa {
   created_at: string
   responsavel?: Profile | null
   responsaveis?: Profile[]
+  tipo_demanda?: 'urgente' | 'estoque' | 'semana' | 'rotina'
+  formato_video?: string | null
+  plataforma_programada?: string | null
+  data_programacao?: string | null
+  notas_colaborador?: string | null
+  checklist_itens?: ChecklistItem[] | null
+  referencias?: ReferenciaItem[] | null
 }
 
 export interface Comentario {

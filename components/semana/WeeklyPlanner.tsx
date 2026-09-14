@@ -4,9 +4,9 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare } from 'lucide-react'
+import { Plus, Calendar, User, Search, X, Trash2, ArrowLeft, ArrowRight, Share2, Clipboard, HelpCircle, MessageSquare, CheckSquare, FileText, Link2, ExternalLink, Check, Copy } from 'lucide-react'
 import { formatDate, getInitials } from '@/lib/utils'
-import type { Tarefa, StatusTarefa, Profile, ClientePublico } from '@/types'
+import type { Tarefa, StatusTarefa, Profile, ClientePublico, ChecklistItem, ReferenciaItem } from '@/types'
 
 // Days of the week config
 const DIAS_SEMANA = [
@@ -206,6 +206,70 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   const [newPrazo, setNewPrazo] = useState('')
   const [newHorarioInicio, setNewHorarioInicio] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Workspace Tab & Notes/Checklist/References state
+  const [rightWorkspaceTab, setRightWorkspaceTab] = useState<'notas' | 'checklist' | 'referencias' | 'comentarios'>('notas')
+  const [newChecklistText, setNewChecklistText] = useState('')
+  const [newRefTitle, setNewRefTitle] = useState('')
+  const [newRefUrl, setNewRefUrl] = useState('')
+
+  const handleToggleChecklistItem = useCallback((itemId: string) => {
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentList = prev.checklist_itens || []
+      const updated = currentList.map(item =>
+        item.id === itemId ? { ...item, concluido: !item.concluido } : item
+      )
+      return { ...prev, checklist_itens: updated }
+    })
+  }, [])
+
+  const handleAddChecklistItem = useCallback(() => {
+    if (!newChecklistText.trim()) return
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentList = prev.checklist_itens || []
+      const newItem: ChecklistItem = {
+        id: crypto.randomUUID(),
+        texto: newChecklistText.trim(),
+        concluido: false
+      }
+      return { ...prev, checklist_itens: [...currentList, newItem] }
+    })
+    setNewChecklistText('')
+  }, [newChecklistText])
+
+  const handleDeleteChecklistItem = useCallback((itemId: string) => {
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentList = prev.checklist_itens || []
+      return { ...prev, checklist_itens: currentList.filter(i => i.id !== itemId) }
+    })
+  }, [])
+
+  const handleAddReferencia = useCallback(() => {
+    if (!newRefTitle.trim() || !newRefUrl.trim()) return
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentRefs = prev.referencias || []
+      const newRef: ReferenciaItem = {
+        id: crypto.randomUUID(),
+        titulo: newRefTitle.trim(),
+        url: newRefUrl.trim()
+      }
+      return { ...prev, referencias: [...currentRefs, newRef] }
+    })
+    setNewRefTitle('')
+    setNewRefUrl('')
+  }, [newRefTitle, newRefUrl])
+
+  const handleDeleteReferencia = useCallback((refId: string) => {
+    setEditingTarefa(prev => {
+      if (!prev) return null
+      const currentRefs = prev.referencias || []
+      return { ...prev, referencias: currentRefs.filter(r => r.id !== refId) }
+    })
+  }, [])
 
   // Toggle helpers for multiple responsibles
   const toggleResponsavelEdicao = useCallback((membroId: string) => {
@@ -483,19 +547,32 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     setLoading(true)
     const supabase = supabaseRef.current
 
-    const { error } = await supabase
+    let updatePayload: any = {
+      titulo: editingTarefa.titulo,
+      descricao: editingTarefa.descricao || null,
+      responsavel_id: editingTarefa.responsavel_ids?.[0] || null,
+      responsavel_ids: editingTarefa.responsavel_ids || [],
+      prazo: editingTarefa.prazo || null,
+      horario_inicio: editingTarefa.horario_inicio || null,
+      status: editingTarefa.status,
+      horario_conclusao: editingTarefa.horario_conclusao || null,
+      notas_colaborador: editingTarefa.notas_colaborador || null,
+      checklist_itens: editingTarefa.checklist_itens || null,
+      referencias: editingTarefa.referencias || null,
+    }
+
+    let { error } = await supabase
       .from('tarefas')
-      .update({
-        titulo: editingTarefa.titulo,
-        descricao: editingTarefa.descricao || null,
-        responsavel_id: editingTarefa.responsavel_ids?.[0] || null,
-        responsavel_ids: editingTarefa.responsavel_ids || [],
-        prazo: editingTarefa.prazo || null,
-        horario_inicio: editingTarefa.horario_inicio || null,
-        status: editingTarefa.status,
-        horario_conclusao: editingTarefa.horario_conclusao || null,
-      })
+      .update(updatePayload)
       .eq('id', editingTarefa.id)
+
+    if (error) {
+      delete updatePayload.notas_colaborador
+      delete updatePayload.checklist_itens
+      delete updatePayload.referencias
+      const retry = await supabase.from('tarefas').update(updatePayload).eq('id', editingTarefa.id)
+      error = retry.error
+    }
 
     setLoading(false)
 
@@ -1204,55 +1281,272 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
               </div>
             </form>
 
-            {/* Right Column: Comments / Annotations */}
-            <div className="hidden md:flex md:w-[380px] p-6 bg-surface-elevated flex-col justify-between overflow-hidden">
+            {/* Right Column: Filmmaker Workspace (Apple Notes, Checklist, Referências, Anotações) */}
+            <div className="hidden md:flex md:w-[420px] p-5 bg-surface-elevated flex-col justify-between overflow-hidden border-l border-border">
               <div className="flex flex-col flex-1 min-h-0">
-                <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
-                  <h3 className="font-display text-sm font-bold text-text-primary">Anotações da Demanda</h3>
+                {/* Tab Selector */}
+                <div className="flex items-center gap-1 p-1 bg-surface rounded-lg border border-border mb-4 text-xs font-semibold overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setRightWorkspaceTab('notas')}
+                    className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      rightWorkspaceTab === 'notas'
+                        ? 'bg-gold-muted text-gold border border-gold/30 font-bold'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <FileText size={13} />
+                    <span>Notas Mac</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRightWorkspaceTab('checklist')}
+                    className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      rightWorkspaceTab === 'checklist'
+                        ? 'bg-gold-muted text-gold border border-gold/30 font-bold'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <CheckSquare size={13} />
+                    <span>Checklist</span>
+                    {editingTarefa.checklist_itens && editingTarefa.checklist_itens.length > 0 && (
+                      <span className="text-[9px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full font-bold">
+                        {editingTarefa.checklist_itens.filter(i => i.concluido).length}/{editingTarefa.checklist_itens.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRightWorkspaceTab('referencias')}
+                    className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      rightWorkspaceTab === 'referencias'
+                        ? 'bg-gold-muted text-gold border border-gold/30 font-bold'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <Link2 size={13} />
+                    <span>Links</span>
+                    {editingTarefa.referencias && editingTarefa.referencias.length > 0 && (
+                      <span className="text-[9px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full font-bold">
+                        {editingTarefa.referencias.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setRightWorkspaceTab('comentarios')}
+                    className={`py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      rightWorkspaceTab === 'comentarios'
+                        ? 'bg-gold-muted text-gold border border-gold/30 font-bold'
+                        : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <MessageSquare size={13} />
+                    {comentarios.length > 0 && (
+                      <span className="text-[9px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-full font-bold">
+                        {comentarios.length}
+                      </span>
+                    )}
+                  </button>
                 </div>
 
-                {/* Comments List */}
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                  {comentariosLoading ? (
-                    <div className="h-full flex items-center justify-center py-10">
-                      <p className="text-xs text-text-secondary animate-pulse">Carregando anotações...</p>
+                {/* Tab 1: Apple Notes Concept */}
+                {rightWorkspaceTab === 'notas' && (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider flex items-center gap-1">
+                        <FileText size={12} className="text-gold" /> Bloco de Notas Particular (Estilo Mac)
+                      </span>
+                      <span className="text-[9px] text-text-secondary opacity-60 italic">Salvo ao salvar demanda</span>
                     </div>
-                  ) : comentarios.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center py-10 text-center">
-                      <p className="text-xs text-text-secondary opacity-60">Sem anotações ainda.</p>
-                      <p className="text-[10px] text-text-secondary opacity-40 mt-0.5">Escreva anotações importantes para o filmmaker.</p>
+                    <textarea
+                      rows={12}
+                      value={editingTarefa.notas_colaborador || ''}
+                      onChange={e => setEditingTarefa({ ...editingTarefa, notas_colaborador: e.target.value })}
+                      className="w-full flex-1 bg-[#121212] border border-[#2A2A2A] rounded-xl p-3 text-xs text-[#E0E0E0] placeholder-text-secondary/40 font-mono resize-none focus:outline-none focus:border-gold/50 leading-relaxed"
+                      placeholder={"- Ideias de roteiro e transições...\n- Trilha recomendada: Phonk / Trap / Pop\n- Links e rascunhos de legenda..."}
+                    />
+                  </div>
+                )}
+
+                {/* Tab 2: Checklist */}
+                {rightWorkspaceTab === 'checklist' && (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+                        Checklist de Entregáveis / Vídeos
+                      </span>
+                      {editingTarefa.checklist_itens && editingTarefa.checklist_itens.length > 0 && (
+                        <span className="text-[10px] font-bold text-gold">
+                          {Math.round((editingTarefa.checklist_itens.filter(i => i.concluido).length / editingTarefa.checklist_itens.length) * 100)}% concluído
+                        </span>
+                      )}
                     </div>
-                  ) : (
-                    comentarios.map((c) => (
-                      <div key={c.id} className="p-3 rounded bg-surface border border-border/60 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-gold">{c.autor?.nome || 'Usuário'}</span>
-                          <span className="text-text-secondary">{formatDate(c.created_at)}</span>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Ex: 4 vídeos em pé com CTA..."
+                        value={newChecklistText}
+                        onChange={e => setNewChecklistText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddChecklistItem() } }}
+                        className="input text-xs flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddChecklistItem}
+                        className="btn-primary text-xs py-1 px-3"
+                      >
+                        + Add
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                      {(!editingTarefa.checklist_itens || editingTarefa.checklist_itens.length === 0) ? (
+                        <p className="text-xs text-text-secondary/50 italic py-6 text-center">Nenhum item no checklist ainda.</p>
+                      ) : (
+                        editingTarefa.checklist_itens.map(item => (
+                          <div key={item.id} className="flex items-center justify-between p-2.5 rounded-lg bg-surface border border-border/60 hover:border-gold/20 transition-all group">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleChecklistItem(item.id)}
+                              className="flex items-center gap-2.5 flex-1 text-left min-w-0"
+                            >
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                item.concluido ? 'bg-gold border-gold text-black' : 'border-border bg-surface-elevated'
+                              }`}>
+                                {item.concluido && <Check size={11} strokeWidth={3} />}
+                              </div>
+                              <span className={`text-xs truncate ${item.concluido ? 'line-through text-text-secondary' : 'text-text-primary font-medium'}`}>
+                                {item.texto}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteChecklistItem(item.id)}
+                              className="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-danger p-1 transition-opacity"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 3: Referências & Links */}
+                {rightWorkspaceTab === 'referencias' && (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-3">
+                    <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider">
+                      Links de Referência & Inspiração
+                    </span>
+
+                    <div className="space-y-2 bg-surface p-3 rounded-xl border border-border/80">
+                      <input
+                        type="text"
+                        placeholder="Título (ex: Reel Viral 'Professor')..."
+                        value={newRefTitle}
+                        onChange={e => setNewRefTitle(e.target.value)}
+                        className="input text-xs"
+                      />
+                      <input
+                        type="url"
+                        placeholder="URL (https://instagram.com/reel/...)"
+                        value={newRefUrl}
+                        onChange={e => setNewRefUrl(e.target.value)}
+                        className="input text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddReferencia}
+                        disabled={!newRefTitle.trim() || !newRefUrl.trim()}
+                        className="btn-secondary w-full text-xs py-1.5 disabled:opacity-40"
+                      >
+                        + Adicionar Link de Inspiração
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                      {(!editingTarefa.referencias || editingTarefa.referencias.length === 0) ? (
+                        <p className="text-xs text-text-secondary/50 italic py-6 text-center">Nenhum link de referência anexado.</p>
+                      ) : (
+                        editingTarefa.referencias.map(ref => (
+                          <div key={ref.id} className="p-3 rounded-xl bg-surface border border-border/60 hover:border-gold/30 transition-all space-y-1.5 group">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold text-text-primary truncate">{ref.titulo}</p>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReferencia(ref.id)}
+                                className="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-danger transition-opacity"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                            <a
+                              href={ref.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] text-gold hover:underline font-mono"
+                            >
+                              <ExternalLink size={10} />
+                              <span>Abrir no Instagram / TikTok</span>
+                            </a>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 4: Comentários */}
+                {rightWorkspaceTab === 'comentarios' && (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-3">
+                    <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                      {comentariosLoading ? (
+                        <div className="h-full flex items-center justify-center py-10">
+                          <p className="text-xs text-text-secondary animate-pulse">Carregando anotações...</p>
                         </div>
-                        <p className="text-text-primary whitespace-pre-line leading-relaxed">{c.conteudo}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                      ) : comentarios.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center py-10 text-center">
+                          <p className="text-xs text-text-secondary opacity-60">Sem anotações ainda.</p>
+                          <p className="text-[10px] text-text-secondary opacity-40 mt-0.5">Escreva anotações importantes para o filmmaker.</p>
+                        </div>
+                      ) : (
+                        comentarios.map((c) => (
+                          <div key={c.id} className="p-3 rounded bg-surface border border-border/60 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="font-bold text-gold">{c.autor?.nome || 'Usuário'}</span>
+                              <span className="text-text-secondary">{formatDate(c.created_at)}</span>
+                            </div>
+                            <p className="text-text-primary whitespace-pre-line leading-relaxed">{c.conteudo}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
 
-              {/* Comment input */}
-              <form onSubmit={handleAddComentario} className="border-t border-border pt-4 mt-4 space-y-2">
-                <textarea
-                  required
-                  rows={2}
-                  value={novoComentario}
-                  onChange={e => setNovoComentario(e.target.value)}
-                  className="input text-xs resize-none py-2 bg-background border-border/80"
-                  placeholder="Adicione uma anotação de captação..."
-                />
-                <button
-                  type="submit"
-                  className="btn-primary w-full text-xs py-1.5"
-                >
-                  Registrar Anotação
-                </button>
-              </form>
+                    <form onSubmit={handleAddComentario} className="border-t border-border pt-3 space-y-2">
+                      <textarea
+                        required
+                        rows={2}
+                        value={novoComentario}
+                        onChange={e => setNovoComentario(e.target.value)}
+                        className="input text-xs resize-none py-2 bg-background border-border/80"
+                        placeholder="Adicione um comentário..."
+                      />
+                      <button
+                        type="submit"
+                        className="btn-primary w-full text-xs py-1.5"
+                      >
+                        Registrar Comentário
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
