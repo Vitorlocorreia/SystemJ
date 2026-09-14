@@ -840,7 +840,17 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
             return (
               <div
                 key={c.id}
-                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative ${
+                onClick={() => {
+                  if (proximaDemanda) {
+                    setRightWorkspaceTab('notas')
+                    abrirDetalhesTarefa(proximaDemanda)
+                  } else {
+                    setNewClienteId(c.id)
+                    setNewPrazo(formatYYYYMMDD(new Date()))
+                    setIsCreateOpen(true)
+                  }
+                }}
+                className={`p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 group relative cursor-pointer ${
                   isSelected
                     ? 'border-gold bg-gold/10 shadow-gold-glow'
                     : 'border-border/70 bg-surface-elevated/40 hover:border-gold/30 hover:bg-surface-elevated'
@@ -860,13 +870,16 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                     </span>
                   </div>
 
-                  {/* Demanda Atual na Semana */}
+                  {/* Demanda Atual na Semana (Clicável para abrir Apple Notes) */}
                   {proximaDemanda ? (
-                    <div className="text-[10px] text-text-secondary bg-surface/60 rounded-lg p-2 border border-border/40 mt-1">
-                      <span className="text-[9px] font-bold text-gold uppercase block mb-0.5">
-                        Demanda Atual na Semana:
-                      </span>
-                      <p className="font-medium text-text-primary truncate">{proximaDemanda.titulo}</p>
+                    <div className="text-[10px] text-text-secondary bg-surface/80 rounded-lg p-2.5 border border-border/60 hover:border-gold/40 transition-colors mt-1">
+                      <div className="flex items-center justify-between gap-1 mb-0.5">
+                        <span className="text-[9px] font-bold text-gold uppercase tracking-wider flex items-center gap-1">
+                          <FileText size={10} /> Demanda Atual (Clique p/ Notes):
+                        </span>
+                        <span className="text-[9px] text-gold underline font-mono">Abrir ➔</span>
+                      </div>
+                      <p className="font-semibold text-text-primary truncate">{proximaDemanda.titulo}</p>
                       {proximaDemanda.prazo && (
                         <p className="text-[9px] text-text-secondary mt-0.5">
                           {formatDate(proximaDemanda.prazo)} {proximaDemanda.horario_inicio ? `• ${proximaDemanda.horario_inicio.slice(0, 5)}` : ''}
@@ -874,11 +887,14 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                       )}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-text-secondary/50 italic mt-1 py-1">Sem demandas nesta semana</p>
+                    <div className="text-[10px] text-text-secondary/60 bg-surface/40 rounded-lg p-2 border border-dashed border-border/40 mt-1 flex items-center justify-between">
+                      <span className="italic">Sem demandas agendadas</span>
+                      <span className="text-gold text-[9px] font-bold">+ Criar Pauta</span>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2">
+                <div className="flex items-center justify-between pt-2 border-t border-border/40 text-[10px] gap-2" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => setSelectedCliente(isSelected ? 'todos' : c.id)}
                     className={`font-semibold py-1 px-2.5 rounded-md transition-colors ${
@@ -887,13 +903,13 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                         : 'bg-surface border border-border text-text-secondary hover:text-text-primary'
                     }`}
                   >
-                    {isSelected ? '✓ Filtrado' : 'Filtrar Semana'}
+                    {isSelected ? '✓ Filtrando' : 'Filtrar Agenda'}
                   </button>
                   <Link
                     href={`/clientes/${c.id}`}
                     className="text-gold hover:underline flex items-center gap-1 font-medium"
                   >
-                    <span>Abrir Mesa</span>
+                    <span>Ver Mesa</span>
                     <ExternalLink size={10} />
                   </Link>
                 </div>
