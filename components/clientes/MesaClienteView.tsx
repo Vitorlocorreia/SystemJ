@@ -597,17 +597,14 @@ export default function MesaClienteView({
                                   >
                                     <div>
                                       {/* Top Badges */}
-                                      <div className="flex items-center justify-between gap-1 mb-1">
-                                        <span className="text-[8px] font-mono font-bold text-gold uppercase tracking-wider bg-black/40 px-1.5 py-0.5 rounded">
-                                          {t.plataforma_programada || t.formato_video || 'Reels / TikTok'}
+                                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                                        <span className="text-[8px] font-mono font-bold text-gold uppercase tracking-wider bg-black/50 px-1.5 py-0.5 rounded border border-gold/20">
+                                          {t.plataforma_programada || t.formato_video || 'Instagram Reels'}
                                         </span>
 
-                                        {t.prazo && (
-                                          <span className="text-[9px] font-mono text-gold font-bold flex items-center gap-1">
-                                            <Clock size={10} />
-                                            {t.horario_inicio ? t.horario_inicio.slice(0, 5) : formatDate(t.prazo)}
-                                          </span>
-                                        )}
+                                        <span className="text-[9px] font-mono text-text-secondary">
+                                          #{index + 1}
+                                        </span>
                                       </div>
 
                                       {/* Titulo do Post-it */}
@@ -619,6 +616,22 @@ export default function MesaClienteView({
                                           {t.descricao}
                                         </p>
                                       )}
+
+                                      {/* Ficha Prominente de Data & Horário de Publicação */}
+                                      <div className="mt-2.5 mb-1 p-2 rounded-lg bg-black/50 border border-gold/30 flex items-center justify-between text-[10px] shadow-inner">
+                                        <span className="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Postar em:</span>
+                                        <div className="font-mono font-bold text-gold flex items-center gap-1.5">
+                                          <span className="flex items-center gap-1">
+                                            <Calendar size={10} className="text-gold" />
+                                            {t.prazo ? formatDate(t.prazo) : 'Sem Data'}
+                                          </span>
+                                          <span className="text-text-secondary">•</span>
+                                          <span className="flex items-center gap-1 bg-gold/20 px-1.5 py-0.5 rounded text-gold font-bold">
+                                            <Clock size={10} />
+                                            {t.horario_inicio ? t.horario_inicio.slice(0, 5) : '18:00'}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
 
                                     {/* Footer do Post-it */}
