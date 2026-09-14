@@ -25,6 +25,9 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
     segmento: cliente.segmento || '',
     status: cliente.status || 'prospecto',
     valor_contrato: cliente.valor_contrato ? String(cliente.valor_contrato) : '',
+    dia_vencimento: (cliente as any).dia_vencimento ? String((cliente as any).dia_vencimento) : '',
+    data_inicio_contrato: (cliente as any).data_inicio_contrato || '',
+    data_fim_contrato: (cliente as any).data_fim_contrato || '',
   })
 
   const [logoUrl, setLogoUrl] = useState(cliente.logo_url || cliente.avatar_url || '')
@@ -71,6 +74,8 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.nome.trim()) return
+
     setLoading(true)
 
     const supabase = createClient() as any
@@ -84,6 +89,9 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
         segmento: form.segmento || null,
         status: form.status,
         valor_contrato: form.valor_contrato ? parseFloat(form.valor_contrato.replace(',', '.')) : null,
+        dia_vencimento: form.dia_vencimento ? parseInt(form.dia_vencimento, 10) : null,
+        data_inicio_contrato: form.data_inicio_contrato || null,
+        data_fim_contrato: form.data_fim_contrato || null,
         logo_url: logoUrl || null,
         avatar_url: logoUrl || null,
       })
@@ -222,6 +230,54 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
               placeholder="0,00"
             />
             <p className="text-[10px] text-text-secondary mt-1">Use vírgula ou ponto para centavos.</p>
+          </div>
+
+          {/* Dados de Contrato e Vencimento */}
+          <div className="sm:col-span-2 pt-3 border-t border-border/40 space-y-3">
+            <h4 className="font-display text-xs font-bold text-gold uppercase tracking-wider">
+              🗓️ Vencimento & Vigência do Contrato
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label htmlFor="dia_vencimento" className="label">Dia de Vencimento Mensal</label>
+                <input
+                  id="dia_vencimento"
+                  name="dia_vencimento"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={form.dia_vencimento}
+                  onChange={handleChange}
+                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                  placeholder="Ex: 5, 10, 15, 20"
+                />
+                <p className="text-[10px] text-text-secondary mt-1">Dia do mês (1 a 31) em que a fatura vence.</p>
+              </div>
+
+              <div>
+                <label htmlFor="data_inicio_contrato" className="label">Início do Contrato</label>
+                <input
+                  id="data_inicio_contrato"
+                  name="data_inicio_contrato"
+                  type="date"
+                  value={form.data_inicio_contrato}
+                  onChange={handleChange}
+                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="data_fim_contrato" className="label">Término / Vencimento do Contrato</label>
+                <input
+                  id="data_fim_contrato"
+                  name="data_fim_contrato"
+                  type="date"
+                  value={form.data_fim_contrato}
+                  onChange={handleChange}
+                  className="input focus:ring-gold/20 focus:border-gold text-xs"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
