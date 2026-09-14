@@ -137,6 +137,45 @@ export interface CategoriaFinanceiro {
   cor: string
 }
 
+export interface NoteFolder {
+  id: string
+  profile_id?: string | null
+  cliente_id?: string | null
+  nome: string
+  icone?: string
+  created_at: string
+}
+
+export interface NoteAttachment {
+  id: string
+  nome: string
+  url: string
+  tipo: 'imagem' | 'pdf' | 'documento' | 'audio' | 'video' | 'outros'
+  tamanho?: string
+}
+
+export interface Note {
+  id: string
+  profile_id?: string | null
+  cliente_id?: string | null
+  projeto_id?: string | null
+  tarefa_id?: string | null
+  folder_id?: string | null
+  titulo: string
+  conteudo: string
+  is_fixed: boolean
+  is_favorite: boolean
+  in_trash: boolean
+  tags: string[]
+  checklist_itens: ChecklistItem[]
+  anexos: NoteAttachment[]
+  created_at: string
+  updated_at: string
+  cliente?: ClientePublico | null
+  projeto?: Projeto | null
+  autor?: Profile | null
+}
+
 export interface Lancamento {
   id: string
   tipo: TipoLancamento

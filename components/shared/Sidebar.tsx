@@ -17,6 +17,7 @@ import {
   Palette,
   ClipboardList,
   DollarSign,
+  FileText,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/semana', label: 'Semana', icon: Calendar },
   { href: '/clientes', label: 'Clientes', icon: Users },
+  { href: '/notas', label: 'Notas & Roteiros', icon: FileText },
   { href: '/projetos', label: 'Projetos', icon: KanbanSquare },
   { href: '/demandas', label: 'Demandas', icon: ClipboardList },
   { href: '/financeiro', label: 'Financeiro', icon: DollarSign },
@@ -48,19 +50,18 @@ export default function Sidebar() {
   const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
 
   const visibleItems = navItems.filter(item => {
+    // Módulo Notas & Roteiros é liberado para toda a equipe
+    if (item.href === '/notas') return true
+
     if (isDesign) {
-      // Design vê demandas do design (/design), projetos (/projetos) e configurações (/configuracoes)
       return item.href === '/design' || item.href === '/projetos' || item.href === '/configuracoes'
     }
     if (isGestor) {
-      // Gestor vê tudo exceto a view específica do design (/design)
       return item.href !== '/design'
     }
     if (isMolaOrRennan) {
-      // Mola e Rennan veem Semana, Demandas, Projetos e Configurações
       return item.href === '/semana' || item.href === '/demandas' || item.href === '/projetos' || item.href === '/configuracoes'
     }
-    // Outros roles (filmmaker, tecnologia, etc.) veem Semana, Demandas e Configurações
     return item.href === '/semana' || item.href === '/demandas' || item.href === '/configuracoes'
   })
 
