@@ -94,10 +94,20 @@ export default function MesaClienteView({
   const [novaPautaStatus, setNovaPautaStatus] = useState<string>('a_fazer')
   const [novaPautaRespId, setNovaPautaRespId] = useState('')
   const [creatingPauta, setCreatingPauta] = useState(false)
+  const [selectedMembro, setSelectedMembro] = useState<string>('todos')
 
   // Filtered Postagens
   const postagensFiltradas = useMemo(() => {
     return tarefas.filter(t => {
+      // 1. Filtro por Responsável
+      const matchMembro =
+        selectedMembro === 'todos' ||
+        t.responsavel_id === selectedMembro ||
+        (t.responsavel_ids && t.responsavel_ids.includes(selectedMembro))
+
+      if (!matchMembro) return false
+
+      // 2. Filtro por Status da Postagem
       if (filterPostagem === 'programados') {
         return t.status === 'programado' || t.data_programacao || (t.status === 'em_andamento' && t.prazo)
       }
@@ -112,7 +122,7 @@ export default function MesaClienteView({
       }
       return true
     })
-  }, [tarefas, filterPostagem])
+  }, [tarefas, filterPostagem, selectedMembro])
 
   // Handlers para Mudar Status da Postagem em 1 Clique
   async function handleMudarStatusPostagem(tarefaId: string, novoStatus: string) {
@@ -368,6 +378,48 @@ export default function MesaClienteView({
       {/* TAB 1: CRONOGRAMA DE PUBLICAÇÕES DE VÍDEOS */}
       {activeTab === 'postagens' && (
         <div className="space-y-4 animate-fade-in">
+          {/* Filtro de Responsável com Avatares (Ajuda do Gestor) */}
+          <div className="flex items-center gap-1.5 p-2 bg-surface rounded-xl border border-border overflow-x-auto">
+            <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider px-2 flex items-center gap-1 shrink-0">
+              <User size={12} className="text-gold" /> Filtrar por Responsável / Filmmaker:
+            </span>
+
+            <button
+              onClick={() => setSelectedMembro('todos')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+                selectedMembro === 'todos'
+                  ? 'bg-gold text-black shadow-sm'
+                  : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              Todos ({membros.length})
+            </button>
+
+            {membros.map(m => {
+              const isSelected = selectedMembro === m.id
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMembro(isSelected ? 'todos' : m.id)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 border ${
+                    isSelected
+                      ? 'border-gold bg-gold/15 text-gold font-bold shadow-gold-glow'
+                      : 'border-border/60 bg-surface-elevated hover:border-gold/30 text-text-secondary hover:text-text-primary'
+                  }`}
+                >
+                  <div className="w-4 h-4 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[8px] font-bold">
+                    {m.avatar_url ? (
+                      <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                    ) : (
+                      getInitials(m.nome)
+                    )}
+                  </div>
+                  <span className="truncate max-w-[100px]">{m.nome.split(' ')[0]}</span>
+                </button>
+              )
+            })}
+          </div>
+
           {/* Sub-filtros por Status de Publicação */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border">
             <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">

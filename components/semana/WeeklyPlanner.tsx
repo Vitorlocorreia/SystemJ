@@ -866,6 +866,48 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         </div>
       </div>
 
+      {/* Filtro por Responsável / Filmmaker (Para o Gestor) */}
+      <div className="flex items-center gap-1.5 p-2.5 bg-surface rounded-xl border border-border overflow-x-auto animate-fade-in">
+        <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider px-2 flex items-center gap-1 shrink-0">
+          <User size={12} className="text-gold" /> Filtrar por Filmmaker / Responsável:
+        </span>
+
+        <button
+          onClick={() => setSelectedMembro('todos')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 ${
+            selectedMembro === 'todos'
+              ? 'bg-gold text-black shadow-sm'
+              : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          Todos os Responsáveis ({membros.length})
+        </button>
+
+        {membros.map(m => {
+          const isSelected = selectedMembro === m.id
+          return (
+            <button
+              key={m.id}
+              onClick={() => setSelectedMembro(isSelected ? 'todos' : m.id)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all shrink-0 border ${
+                isSelected
+                  ? 'border-gold bg-gold/15 text-gold font-bold shadow-gold-glow'
+                  : 'border-border/60 bg-surface-elevated hover:border-gold/30 text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              <div className="w-4 h-4 rounded-full bg-gold-muted border border-gold/30 flex items-center justify-center shrink-0 overflow-hidden text-[8px] font-bold">
+                {m.avatar_url ? (
+                  <img src={m.avatar_url} alt={m.nome} className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(m.nome)
+                )}
+              </div>
+              <span className="truncate max-w-[100px]">{m.nome.split(' ')[0]}</span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Week Navigator & Filters */}
       <div className="flex flex-col xl:flex-row gap-4 items-center justify-between bg-surface border border-border p-4 rounded-lg">
         {/* Navigation */}
