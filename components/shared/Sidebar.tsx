@@ -28,7 +28,6 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/semana', label: 'Semana', icon: Calendar },
   { href: '/clientes', label: 'Clientes', icon: Users },
-  { href: '/notas', label: 'Notas & Roteiros', icon: FileText },
   { href: '/projetos', label: 'Projetos', icon: KanbanSquare },
   { href: '/demandas', label: 'Demandas', icon: ClipboardList },
   { href: '/financeiro', label: 'Financeiro', icon: DollarSign },
@@ -50,9 +49,6 @@ export default function Sidebar() {
   const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
 
   const visibleItems = navItems.filter(item => {
-    // Módulo Notas & Roteiros é liberado para toda a equipe
-    if (item.href === '/notas') return true
-
     if (isDesign) {
       return item.href === '/design' || item.href === '/projetos' || item.href === '/configuracoes'
     }

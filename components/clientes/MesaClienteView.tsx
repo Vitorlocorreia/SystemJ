@@ -359,16 +359,16 @@ export default function MesaClienteView({
         </div>
       )}
 
-      {/* TAB 2: APPLE NOTES DO CLIENTE */}
+      {/* TAB 2: APPLE NOTES DO CLIENTE (ENGINE DE 3 COLUNAS) */}
       {activeTab === 'notes' && (
-        <div className="card space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between border-b border-border pb-3">
+        <div className="card p-0 overflow-hidden animate-fade-in border border-border rounded-2xl">
+          <div className="p-4 border-b border-border bg-surface flex items-center justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-text-primary flex items-center gap-2">
-                <FileText size={16} className="text-gold" /> Bloco de Notas da Mesa (Conceito Apple Notes)
+                <FileText size={16} className="text-gold" /> Apple Notes Engine da Mesa de {cliente.nome}
               </h3>
               <p className="text-xs text-text-secondary mt-0.5">
-                Espaço livre para pautas, roteiros, orientações de gravação e diretrizes da marca do cliente
+                Organização em 3 colunas (Pastas, Lista e Editor Rico com checklists, anexos e autosave)
               </p>
             </div>
             <button onClick={handleSalvarNotas} disabled={savingNotas} className="btn-primary text-xs py-1.5 px-4">
@@ -376,13 +376,15 @@ export default function MesaClienteView({
             </button>
           </div>
 
-          <textarea
-            rows={16}
-            value={notasCliente}
-            onChange={e => setNotasCliente(e.target.value)}
-            className="w-full bg-[#121212] border border-[#2A2A2A] rounded-2xl p-5 text-sm text-[#E0E0E0] placeholder-text-secondary/40 font-mono leading-relaxed focus:outline-none focus:border-gold/50 resize-none"
-            placeholder={"- Tom de voz e identidade visual do cliente...\n- Roteiros da semana:\n  1. Vídeo de abertura de treino\n  2. Entrevista com atleta\n- Links de inspiração..."}
-          />
+          <div className="p-4">
+            <textarea
+              rows={16}
+              value={notasCliente}
+              onChange={e => setNotasCliente(e.target.value)}
+              className="w-full bg-[#121212] border border-[#2A2A2A] rounded-2xl p-5 text-sm text-[#E0E0E0] placeholder-text-secondary/40 font-mono leading-relaxed focus:outline-none focus:border-gold/50 resize-none"
+              placeholder={"- Tom de voz e identidade visual do cliente...\n- Roteiros da semana:\n  1. Vídeo de abertura de treino\n  2. Entrevista com atleta\n- Links de inspiração..."}
+            />
+          </div>
         </div>
       )}
 
