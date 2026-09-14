@@ -241,30 +241,14 @@ export default function MesaClienteView({
   // Postagens filtradas na aba Cronograma (Apenas da Semana Atual)
   const postagensFiltradas = useMemo(() => {
     return postagensSemanaAtual.filter(t => {
-      // 1. Filtro por Responsável
       const matchMembro =
         selectedMembro === 'todos' ||
         t.responsavel_id === selectedMembro ||
         (t.responsavel_ids && t.responsavel_ids.includes(selectedMembro))
 
-      if (!matchMembro) return false
-
-      // 2. Filtro por Status da Postagem
-      if (filterPostagem === 'programados') {
-        return t.status === 'programado' || t.data_programacao || (t.status === 'em_andamento' && t.prazo)
-      }
-      if (filterPostagem === 'a_editar') {
-        return t.status === 'a_fazer' || t.status === 'em_andamento'
-      }
-      if (filterPostagem === 'estoque') {
-        return t.tipo_demanda === 'estoque' || t.status === 'estoque'
-      }
-      if (filterPostagem === 'postados') {
-        return t.status === 'concluido'
-      }
-      return true
+      return matchMembro
     })
-  }, [postagensSemanaAtual, filterPostagem, selectedMembro])
+  }, [postagensSemanaAtual, selectedMembro])
 
   // Handlers para Mudar Status da Postagem em 1 Clique
   async function handleMudarStatusPostagem(tarefaId: string, novoStatus: string) {
@@ -562,44 +546,16 @@ export default function MesaClienteView({
             })}
           </div>
 
-          {/* Sub-filtros por Status de Publicação */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border">
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-              <button
-                onClick={() => setFilterPostagem('todas')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  filterPostagem === 'todas' ? 'bg-gold text-black' : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                Todas as Peças ({tarefas.length})
-              </button>
-              <button
-                onClick={() => setFilterPostagem('programados')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
-                  filterPostagem === 'programados' ? 'bg-gold text-black' : 'bg-surface-elevated text-gold hover:bg-gold/10'
-                }`}
-              >
-                <Calendar size={13} />
-                <span>📅 Programados</span>
-              </button>
-              <button
-                onClick={() => setFilterPostagem('a_editar')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
-                  filterPostagem === 'a_editar' ? 'bg-gold text-black' : 'bg-surface-elevated text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                <Film size={13} />
-                <span>✂️ Em Edição</span>
-              </button>
-              <button
-                onClick={() => setFilterPostagem('postados')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1 ${
-                  filterPostagem === 'postados' ? 'bg-gold text-black' : 'bg-surface-elevated text-success hover:bg-success/10'
-                }`}
-              >
-                <CheckCircle2 size={13} />
-                <span>🚀 Postados</span>
-              </button>
+          {/* Header da Seção de Publicações (Limpo sem sub-filtros redundantes) */}
+          <div className="flex items-center justify-between gap-3 bg-surface p-3 rounded-xl border border-border">
+            <div className="flex items-center gap-2">
+              <Tv size={15} className="text-gold" />
+              <span className="font-display text-xs font-bold text-text-primary">
+                Quadro Kanban de Publicações
+              </span>
+              <span className="text-[10px] font-mono font-bold bg-gold-muted text-gold border border-gold/30 px-2 py-0.5 rounded-full">
+                {postagensSemanaAtual.length} Peças na Semana
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
