@@ -368,6 +368,9 @@ export default function MesaClienteView({
       projId = newProj?.id
     }
 
+    const currentUserProfile = membros.find(m => m.user_id === currentUserId || m.id === currentUserId)
+    const effectiveRespId = novaPautaRespId || currentUserProfile?.id || null
+
     const { data, error } = await supabase
       .from('tarefas')
       .insert({
@@ -377,8 +380,8 @@ export default function MesaClienteView({
         status: novaPautaStatus,
         formato_video: novaPautaFormato,
         plataforma_programada: novaPautaPlataforma,
-        responsavel_id: novaPautaRespId || currentUserId,
-        responsavel_ids: novaPautaRespId ? [novaPautaRespId] : [currentUserId],
+        responsavel_id: effectiveRespId,
+        responsavel_ids: effectiveRespId ? [effectiveRespId] : [],
         prazo: novaPautaPrazo || null,
         horario_inicio: novaPautaHorario || null
       })

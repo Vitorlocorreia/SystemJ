@@ -388,6 +388,27 @@ export default function FinanceiroContratos({
       if (lancarNoCaixa) {
         const descricaoLancamento = `Mensalidade ${mesReferenciaLabel} - ${clientePagamento.nome} (${novoStatusCobranca === 'pago' ? 'Integral' : 'Parcial'})`
         
+        let validProfileId: string | null = null
+        if (currentUserId) {
+          const { data: prof } = await (supabase as any)
+            .from('profiles')
+            .select('id')
+            .or(`id.eq.${currentUserId},user_id.eq.${currentUserId}`)
+            .maybeSingle()
+          if (prof?.id) validProfileId = prof.id
+        }
+        if (!validProfileId) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: prof } = await (supabase as any)
+              .from('profiles')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle()
+            if (prof?.id) validProfileId = prof.id
+          }
+        }
+
         const { data: lancamentoData, error: lancamentoErr } = await supabase
           .from('lancamentos')
           .insert({
@@ -400,7 +421,7 @@ export default function FinanceiroContratos({
             status: 'pago',
             data_pagamento: dataPagamentoInput,
             cobranca_id: cobrancaSalva.id,
-            criado_por: currentUserId || null
+            criado_por: validProfileId
           })
           .select('*, categoria:categorias_financeiro(nome, cor), cliente:clientes(id, nome, empresa)')
           .single()

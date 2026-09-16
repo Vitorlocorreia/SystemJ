@@ -114,7 +114,35 @@ export default function LancamentoModal({
         toast.success('Lançamento atualizado com sucesso!')
         onSuccess(data, true)
       } else {
-        payload.criado_por = currentUserId
+        // Garantir que criado_por corresponda ao ID válido na tabela 'profiles'
+        let validProfileId: string | null = null
+
+        if (currentUserId) {
+          const { data: prof } = await (supabase as any)
+            .from('profiles')
+            .select('id')
+            .or(`id.eq.${currentUserId},user_id.eq.${currentUserId}`)
+            .maybeSingle()
+          if (prof?.id) {
+            validProfileId = prof.id
+          }
+        }
+
+        if (!validProfileId) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: prof } = await (supabase as any)
+              .from('profiles')
+              .select('id')
+              .eq('user_id', user.id)
+              .maybeSingle()
+            if (prof?.id) {
+              validProfileId = prof.id
+            }
+          }
+        }
+
+        payload.criado_por = validProfileId
 
         const { data, error } = await supabase
           .from('lancamentos')

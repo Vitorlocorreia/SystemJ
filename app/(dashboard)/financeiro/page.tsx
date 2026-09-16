@@ -12,7 +12,7 @@ export default async function FinanceiroPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('id, role')
     .eq('user_id', user.id)
     .single()
 
@@ -67,7 +67,7 @@ export default async function FinanceiroPage() {
         clientesIniciais={(clientes as Cliente[]) || []}
         projetosIniciais={(projetos as Projeto[]) || []}
         cobrancasIniciais={(cobrancas as Cobranca[]) || []}
-        currentUserId={user.id}
+        currentUserId={profile?.id || user.id}
       />
     </div>
   )
