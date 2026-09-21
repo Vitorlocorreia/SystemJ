@@ -73,16 +73,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   const supabaseRef = useRef(createClient())
 
   const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
-    return raw.map(t => {
-      const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
-      const resps = membros.filter(m => ids.includes(m.id))
-      return {
-        ...t,
-        responsavel_ids: ids,
-        responsaveis: resps,
-        responsavel: resps[0] || null
-      }
-    })
+    return raw
+      .filter(t => t.tipo_demanda !== 'postagem' && !t.formato_video && !t.plataforma_programada)
+      .map(t => {
+        const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
+        const resps = membros.filter(m => ids.includes(m.id))
+        return {
+          ...t,
+          responsavel_ids: ids,
+          responsaveis: resps,
+          responsavel: resps[0] || null
+        }
+      })
   }, [membros])
 
   const [mounted, setMounted] = useState(false)
@@ -145,27 +147,40 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         { event: '*', schema: 'public', table: 'tarefas' },
         async (payload: any) => {
           if (payload.eventType === 'INSERT') {
+            // Ignorar postagens de redes sociais da mesa (aparecem apenas na mesa do cliente)
+            if (payload.new?.tipo_demanda === 'postagem' || payload.new?.formato_video || payload.new?.plataforma_programada) {
+              return
+            }
+
             // Busca tarefa completa com joins para ter projeto/cliente/responsáveis
             const { data } = await supabase
               .from('tarefas')
               .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
               .eq('id', payload.new.id)
               .single()
-            if (data) {
+            if (data && data.tipo_demanda !== 'postagem' && !data.formato_video && !data.plataforma_programada) {
               setTarefas(prev => {
                 // Evita duplicata se o optimistic update já inseriu
                 if (prev.some(t => t.id === data.id)) return prev
-                return [...prev, normalizarTarefas([data])[0]]
+                const normalized = normalizarTarefas([data])
+                return normalized.length > 0 ? [...prev, normalized[0]] : prev
               })
             }
           }
 
           if (payload.eventType === 'UPDATE') {
+            // Se virou postagem, remove da agenda
+            if (payload.new?.tipo_demanda === 'postagem' || payload.new?.formato_video || payload.new?.plataforma_programada) {
+              setTarefas(prev => prev.filter(t => t.id !== payload.new.id))
+              return
+            }
+
             setTarefas(prev =>
               prev.map(t => {
                 if (t.id !== payload.new.id) return t
                 // Mescla os novos campos mantendo joins já carregados
-                return normalizarTarefas([{ ...t, ...payload.new }])[0]
+                const normalized = normalizarTarefas([{ ...t, ...payload.new }])
+                return normalized.length > 0 ? normalized[0] : t
               })
             )
           }
@@ -320,9 +335,12 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
   const nextWeek = () => setCurrentWeekMonday(prev => addDays(prev, 7))
   const todayWeek = () => setCurrentWeekMonday(getMonday(new Date()))
 
-  // Filtered tasks
+  // Filtered tasks - APENAS VISITAS / CAPTAÇÕES DA EQUIPE
   const filteredTarefas = useMemo(() => {
     return tarefas.filter(t => {
+      // Excluir expressamente postagens de vídeo / redes sociais da agenda
+      if (t.tipo_demanda === 'postagem' || t.formato_video || t.plataforma_programada) return false
+
       const matchSearch = t.titulo.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (t.descricao && t.descricao.toLowerCase().includes(searchTerm.toLowerCase()))
       const matchMembro = selectedMembro === 'todos' || 
@@ -334,9 +352,11 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     })
   }, [tarefas, searchTerm, selectedMembro, selectedCliente])
 
-  // Get current user's demands
+  // Get current user's demands - APENAS VISITAS
   const minhasDemandas = useMemo(() => {
     return tarefas.filter(t => {
+      if (t.tipo_demanda === 'postagem' || t.formato_video || t.plataforma_programada) return false
+
       const isMine = meuProfile && (
         t.responsavel_id === meuProfile.id ||
         t.responsavel_ids?.includes(meuProfile.id)
@@ -498,6 +518,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       .from('tarefas')
       .insert({
         projeto_id: projId,
+        tipo_demanda: 'visita',
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: 'a_fazer' as StatusTarefa,
@@ -663,7 +684,10 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     }
 
     weekDates.forEach(day => {
-      const dayTasks = tarefas.filter(t => t.prazo === day.dateStr)
+      const dayTasks = tarefas.filter(t => {
+        if (t.tipo_demanda === 'postagem' || t.formato_video || t.plataforma_programada) return false
+        return t.prazo === day.dateStr
+      })
       const dayFilteredTasks = dayTasks.filter(t => {
         return exportMembro === 'todos' || 
                t.responsavel_id === exportMembro ||
@@ -1736,7 +1760,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
           <div className="bg-surface border border-border w-full max-w-lg rounded-t-2xl sm:rounded-xl overflow-hidden shadow-2xl animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-surface-elevated sticky top-0">
-              <h2 className="font-display text-lg font-bold text-text-primary">Agendar Nova Demanda</h2>
+              <h2 className="font-display text-lg font-bold text-text-primary">Agendar Nova Visita / Captação</h2>
               <button onClick={() => setIsCreateOpen(false)} className="text-text-secondary hover:text-text-primary">
                 <X size={18} />
               </button>
@@ -1744,11 +1768,11 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
             <form onSubmit={handleCreateDemand} className="p-4 md:p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-text-secondary uppercase">Título / Job</label>
+                <label className="text-xs font-semibold text-text-secondary uppercase">Título da Visita / Demanda</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Captação de vídeo de treino - Reels"
+                  placeholder="Ex: Cobertura de Treino / Captação Presencial / Entrevista"
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   className="input text-sm"

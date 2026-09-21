@@ -112,7 +112,7 @@ export interface Tarefa {
   created_at: string
   responsavel?: Profile | null
   responsaveis?: Profile[]
-  tipo_demanda?: 'urgente' | 'estoque' | 'semana' | 'rotina'
+  tipo_demanda?: 'visita' | 'postagem' | 'urgente' | 'estoque' | 'semana' | 'rotina' | string
   formato_video?: string | null
   plataforma_programada?: string | null
   data_programacao?: string | null

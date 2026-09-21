@@ -12,11 +12,17 @@ export default async function SemanaPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Buscar todas as tarefas, incluindo projeto e cliente
+  // Buscar apenas demandas de visitas/captações da agenda da semana (postagens de redes sociais ficam exclusivamente na mesa do cliente)
   const { data: tarefas } = await supabase
     .from('tarefas')
     .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
+    .or('tipo_demanda.eq.visita,tipo_demanda.is.null')
     .order('ordem')
+
+  // Garantir filtragem estrita em memória: remover qualquer postagem/vídeo de rede social
+  const visitasDaSemana = (tarefas as any[] || []).filter(
+    (t: any) => t.tipo_demanda !== 'postagem' && !t.formato_video && !t.plataforma_programada
+  )
 
   // Buscar todos os perfis (membros da equipe)
   const { data: membros } = await supabase
@@ -46,7 +52,7 @@ export default async function SemanaPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <WeeklyPlanner
-        tarefasIniciais={tarefas || []}
+        tarefasIniciais={visitasDaSemana}
         membros={membros || []}
         clientes={clientes || []}
         currentUserId={user.id}

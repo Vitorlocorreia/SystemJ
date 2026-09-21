@@ -224,6 +224,8 @@ export default function MesaClienteView({
   // 1. Postagens da Semana Atual (Cronograma da Semana)
   const postagensSemanaAtual = useMemo(() => {
     return tarefas.filter(t => {
+      // Se for visita pura, não exibe no quadro de postagens da mesa
+      if (t.tipo_demanda === 'visita') return false
       // Se já foi postado (concluido) e a data/prazo é anterior a esta semana, vai pro Histórico
       const isPostadoAntigo = t.status === 'concluido' && t.prazo && t.prazo < mondayStr
       if (isPostadoAntigo) return false
@@ -358,14 +360,29 @@ export default function MesaClienteView({
     setCreatingPauta(true)
     const supabase = createClient() as any
 
-    let projId = projetos[0]?.id || projetosKanban[0]?.id
+    // Obter ou criar um projeto válido na tabela 'projetos' (nunca usar ID de projetos_kanban)
+    let projId = projetos.find((p: any) => p && p.id && !p.id.startsWith('temp_'))?.id
     if (!projId) {
-      const { data: newProj } = await supabase
+      // Verificar se já existe um projeto deste cliente no banco
+      const { data: existingProj } = await supabase
         .from('projetos')
-        .insert({ nome: `Mesa - ${cliente.nome}`, cliente_id: cliente.id, status: 'em_andamento' })
         .select('id')
-        .single()
-      projId = newProj?.id
+        .eq('cliente_id', cliente.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (existingProj?.id) {
+        projId = existingProj.id
+      } else {
+        const { data: newProj, error: projErr } = await supabase
+          .from('projetos')
+          .insert({ nome: `Mesa - ${cliente.nome}`, cliente_id: cliente.id, status: 'em_andamento' })
+          .select('id')
+          .single()
+        if (projErr) throw projErr
+        projId = newProj?.id
+      }
     }
 
     const currentUserProfile = membros.find(m => m.user_id === currentUserId || m.id === currentUserId)
@@ -373,11 +390,12 @@ export default function MesaClienteView({
 
     let insertPayload: any = {
       projeto_id: projId,
+      tipo_demanda: 'postagem',
       titulo: novaPautaTitulo.trim(),
       descricao: novaPautaDesc.trim() || null,
       status: novaPautaStatus,
-      formato_video: novaPautaFormato,
-      plataforma_programada: novaPautaPlataforma,
+      formato_video: novaPautaFormato || novaPautaPlataforma || 'reels',
+      plataforma_programada: novaPautaPlataforma || 'instagram',
       responsavel_id: effectiveRespId,
       responsavel_ids: effectiveRespId ? [effectiveRespId] : [],
       prazo: novaPautaPrazo || null,
