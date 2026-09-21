@@ -7,7 +7,7 @@ export type RoleType =
 
 export type StatusCliente = 'prospecto' | 'ativo' | 'inativo'
 export type StatusProjeto = 'planejamento' | 'em_andamento' | 'concluido' | 'cancelado'
-export type StatusTarefa = 'a_fazer' | 'em_andamento' | 'concluido'
+export type StatusTarefa = 'a_fazer' | 'em_andamento' | 'concluido' | 'programado' | 'estoque' | string
 export type TipoLancamento = 'receita' | 'despesa'
 export type EmpresaGrupo = 'jota_esportivo' | 'jota_tech' | 'holding'
 export type StatusCobranca = 'pendente' | 'parcial' | 'pago' | 'atrasado'

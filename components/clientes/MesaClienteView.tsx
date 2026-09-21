@@ -371,22 +371,36 @@ export default function MesaClienteView({
     const currentUserProfile = membros.find(m => m.user_id === currentUserId || m.id === currentUserId)
     const effectiveRespId = novaPautaRespId || currentUserProfile?.id || null
 
-    const { data, error } = await supabase
+    let insertPayload: any = {
+      projeto_id: projId,
+      titulo: novaPautaTitulo.trim(),
+      descricao: novaPautaDesc.trim() || null,
+      status: novaPautaStatus,
+      formato_video: novaPautaFormato,
+      plataforma_programada: novaPautaPlataforma,
+      responsavel_id: effectiveRespId,
+      responsavel_ids: effectiveRespId ? [effectiveRespId] : [],
+      prazo: novaPautaPrazo || null,
+      horario_inicio: novaPautaHorario || null
+    }
+
+    let { data, error } = await supabase
       .from('tarefas')
-      .insert({
-        projeto_id: projId,
-        titulo: novaPautaTitulo.trim(),
-        descricao: novaPautaDesc.trim() || null,
-        status: novaPautaStatus,
-        formato_video: novaPautaFormato,
-        plataforma_programada: novaPautaPlataforma,
-        responsavel_id: effectiveRespId,
-        responsavel_ids: effectiveRespId ? [effectiveRespId] : [],
-        prazo: novaPautaPrazo || null,
-        horario_inicio: novaPautaHorario || null
-      })
+      .insert(insertPayload)
       .select('*, responsavel:profiles(*)')
       .single()
+
+    if (error && (error.message?.includes('formato_video') || error.message?.includes('plataforma_programada'))) {
+      delete insertPayload.formato_video
+      delete insertPayload.plataforma_programada
+      const retry = await supabase
+        .from('tarefas')
+        .insert(insertPayload)
+        .select('*, responsavel:profiles(*)')
+        .single()
+      data = retry.data
+      error = retry.error
+    }
 
     setCreatingPauta(false)
 
