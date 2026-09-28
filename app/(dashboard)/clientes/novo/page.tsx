@@ -19,8 +19,10 @@ export default function NovoClientePage() {
     telefone: '',
     segmento: '',
     status: 'prospecto' as const,
+    empresa: 'jota_esportivo' as string,
+    forma_pagamento: 'PIX',
     valor_contrato: '',
-    dia_vencimento: '',
+    dia_vencimento: '10',
     data_inicio_contrato: '',
     data_fim_contrato: '',
   })
@@ -72,16 +74,25 @@ export default function NovoClientePage() {
     if (!profile) return
     setLoading(true)
 
+    // Formatação correta de valor decimal
+    let cleanValor: number | null = null
+    if (form.valor_contrato && form.valor_contrato.trim() !== '') {
+      const parsed = parseFloat(form.valor_contrato.replace(/\./g, '').replace(',', '.'))
+      if (!isNaN(parsed)) cleanValor = parsed
+    }
+
     const supabase = createClient() as any
     const { error } = await supabase.from('clientes').insert({
-      nome: form.nome,
-      cnpj_cpf: form.cnpj_cpf || null,
-      email: form.email || null,
-      telefone: form.telefone || null,
-      segmento: form.segmento || null,
+      nome: form.nome.trim(),
+      cnpj_cpf: form.cnpj_cpf.trim() || null,
+      email: form.email.trim() || null,
+      telefone: form.telefone.trim() || null,
+      segmento: form.segmento.trim() || null,
       status: form.status,
-      valor_contrato: form.valor_contrato ? parseFloat(form.valor_contrato.replace(',', '.')) : null,
-      dia_vencimento: form.dia_vencimento ? parseInt(form.dia_vencimento, 10) : null,
+      empresa: form.empresa || 'jota_esportivo',
+      forma_pagamento: form.forma_pagamento || 'PIX',
+      valor_contrato: cleanValor,
+      dia_vencimento: form.dia_vencimento ? parseInt(form.dia_vencimento, 10) : 10,
       data_inicio_contrato: form.data_inicio_contrato || null,
       data_fim_contrato: contratoIndeterminado ? null : (form.data_fim_contrato || null),
       criado_por: profile.id,
@@ -158,7 +169,7 @@ export default function NovoClientePage() {
           </div>
 
           <div>
-            <label htmlFor="telefone" className="label">Telefone</label>
+            <label htmlFor="telefone" className="label">Telefone / WhatsApp</label>
             <input
               id="telefone"
               name="telefone"
@@ -167,6 +178,21 @@ export default function NovoClientePage() {
               className="input focus:ring-gold/20 focus:border-gold"
               placeholder="(11) 90000-0000"
             />
+          </div>
+
+          <div>
+            <label htmlFor="empresa" className="label">Empresa do Grupo Jota</label>
+            <select
+              id="empresa"
+              name="empresa"
+              value={form.empresa}
+              onChange={handleChange}
+              className="input focus:ring-gold/20 focus:border-gold"
+            >
+              <option value="jota_esportivo">⚽ Jota Esportivo</option>
+              <option value="jota_tech">💻 Jota Tech</option>
+              <option value="holding">🏛️ Holding (Grupo Jota)</option>
+            </select>
           </div>
 
           <div>
@@ -181,6 +207,24 @@ export default function NovoClientePage() {
               <option value="prospecto">Prospecto</option>
               <option value="ativo">Ativo</option>
               <option value="inativo">Inativo</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="forma_pagamento" className="label">Forma de Pagamento</label>
+            <select
+              id="forma_pagamento"
+              name="forma_pagamento"
+              value={form.forma_pagamento}
+              onChange={handleChange}
+              className="input focus:ring-gold/20 focus:border-gold"
+            >
+              <option value="PIX">PIX</option>
+              <option value="Boleto">Boleto Bancário</option>
+              <option value="Transferência">Transferência Bancária (TED/DOC)</option>
+              <option value="Cartão">Cartão de Crédito</option>
+              <option value="Dinheiro">Dinheiro</option>
+              <option value="Outro">Outro</option>
             </select>
           </div>
 
