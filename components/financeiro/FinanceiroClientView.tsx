@@ -114,18 +114,30 @@ export default function FinanceiroClientView({
     })
   }, [lancamentosNoPeriodo, empresaFiltro])
 
-  // 3. Filtro Completo (Busca, Tipo, Categoria) para a Tabela
+  // 3. Filtro Completo (Busca, Tipo, Categoria) para a Tabela com ordenação do mais novo para o mais antigo
   const lancamentosFiltrados = useMemo(() => {
-    return lancamentosPorEmpresa.filter(l => {
-      const matchSearch = l.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (l.cliente?.nome && l.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                          (l.projeto?.nome && l.projeto.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+    return lancamentosPorEmpresa
+      .filter(l => {
+        const matchSearch = l.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (l.cliente?.nome && l.cliente.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                            (l.projeto?.nome && l.projeto.nome.toLowerCase().includes(searchTerm.toLowerCase()))
 
-      const matchTipo = tipoFiltro === 'todos' || l.tipo === tipoFiltro
-      const matchCat = categoriaFiltro === 'todos' || l.categoria_id === categoriaFiltro
+        const matchTipo = tipoFiltro === 'todos' || l.tipo === tipoFiltro
+        const matchCat = categoriaFiltro === 'todos' || l.categoria_id === categoriaFiltro
 
-      return matchSearch && matchTipo && matchCat
-    })
+        return matchSearch && matchTipo && matchCat
+      })
+      .sort((a, b) => {
+        // Mais novo para o mais antigo: data_lancamento desc
+        const dateA = a.data_lancamento ? new Date(a.data_lancamento).getTime() : 0
+        const dateB = b.data_lancamento ? new Date(b.data_lancamento).getTime() : 0
+        if (dateB !== dateA) return dateB - dateA
+
+        // Desempate por created_at desc
+        const createdA = a.created_at ? new Date(a.created_at).getTime() : 0
+        const createdB = b.created_at ? new Date(b.created_at).getTime() : 0
+        return createdB - createdA
+      })
   }, [lancamentosPorEmpresa, searchTerm, tipoFiltro, categoriaFiltro])
 
   // Cálculos de KPIs do período ativo

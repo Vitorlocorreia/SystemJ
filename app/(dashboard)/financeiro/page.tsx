@@ -31,7 +31,8 @@ export default async function FinanceiroPage() {
     supabase
       .from('lancamentos')
       .select('*, categoria:categorias_financeiro(nome, cor), cliente:clientes(id, nome, empresa), projeto:projetos(id, nome, empresa)')
-      .order('data_lancamento', { ascending: false }),
+      .order('data_lancamento', { ascending: false })
+      .order('created_at', { ascending: false }),
     supabase
       .from('categorias_financeiro')
       .select('*')

@@ -53,17 +53,29 @@ export default function FinanceiroDespesas({
     return { totalGeral, esportivo, tech, holding }
   }, [todasDespesas])
 
-  // Despesas filtradas para exibição
+  // Despesas filtradas para exibição com ordenação do mais novo para o mais antigo
   const despesasFiltradas = useMemo(() => {
-    return todasDespesas.filter(d => {
-      const emp = d.empresa || 'jota_esportivo'
-      const matchEmp = empresaFiltro === 'todas' || emp === empresaFiltro
-      const matchSearch = d.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (d.categoria?.nome && d.categoria.nome.toLowerCase().includes(searchTerm.toLowerCase()))
-      const matchCat = categoriaFiltro === 'todas' || d.categoria_id === categoriaFiltro
+    return todasDespesas
+      .filter(d => {
+        const emp = d.empresa || 'jota_esportivo'
+        const matchEmp = empresaFiltro === 'todas' || emp === empresaFiltro
+        const matchSearch = d.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (d.categoria?.nome && d.categoria.nome.toLowerCase().includes(searchTerm.toLowerCase()))
+        const matchCat = categoriaFiltro === 'todas' || d.categoria_id === categoriaFiltro
 
-      return matchEmp && matchSearch && matchCat
-    })
+        return matchEmp && matchSearch && matchCat
+      })
+      .sort((a, b) => {
+        // Mais novo para o mais antigo: data_lancamento desc
+        const dateA = a.data_lancamento ? new Date(a.data_lancamento).getTime() : 0
+        const dateB = b.data_lancamento ? new Date(b.data_lancamento).getTime() : 0
+        if (dateB !== dateA) return dateB - dateA
+
+        // Desempate por created_at desc
+        const createdA = a.created_at ? new Date(a.created_at).getTime() : 0
+        const createdB = b.created_at ? new Date(b.created_at).getTime() : 0
+        return createdB - createdA
+      })
   }, [todasDespesas, empresaFiltro, searchTerm, categoriaFiltro])
 
   // Categorias de despesa disponíveis
