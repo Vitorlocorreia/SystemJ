@@ -106,7 +106,7 @@ export default function CollaboratorManager({ projetoId, membros, colaboradoresI
               </p>
 
               {membros
-                .filter(m => m.role !== 'gestor_equipe' && m.role !== 'gestor_financeiro') // Gestores não precisam ser atribuídos
+                .filter(m => m.role !== 'owner' && m.role !== 'gestor_equipe' && m.role !== 'gestor_financeiro') // Gestores/Owner não precisam ser atribuídos
                 .map(m => {
                   const isChecked = colabs.includes(m.id)
 

@@ -1,4 +1,5 @@
 export type RoleType =
+  | 'owner'
   | 'gestor_equipe'
   | 'gestor_financeiro'
   | 'tecnologia'

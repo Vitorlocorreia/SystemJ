@@ -16,7 +16,7 @@ export default async function FinanceiroPage() {
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
 

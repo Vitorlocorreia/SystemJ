@@ -38,7 +38,7 @@ export default function LoginPage() {
       .eq('user_id', authData.user.id)
       .single()
 
-    const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+    const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
 
     router.push(isGestor ? '/dashboard' : '/semana')
     router.refresh()
@@ -57,14 +57,14 @@ export default function LoginPage() {
 
       <div className="w-full max-w-sm animate-fade-in">
         {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center mb-5 shadow-gold-glow">
-            <span className="font-display text-black text-3xl font-bold leading-none">J.</span>
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-xl border border-white/20 overflow-hidden">
+            <img src="/logo.png" alt="Grupo Jota" className="w-full h-full object-cover" />
           </div>
           <h1 className="font-display text-2xl font-bold text-text-primary tracking-tight">
-            Jota Esportivo
+            Grupo Jota
           </h1>
-          <p className="text-text-secondary text-sm mt-1">Sistema interno</p>
+          <p className="text-text-secondary text-xs mt-1 uppercase tracking-widest font-medium">Sistema Interno</p>
         </div>
 
         {/* Card */}

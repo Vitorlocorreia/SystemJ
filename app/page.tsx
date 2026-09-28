@@ -15,7 +15,7 @@ export default async function Home() {
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
   
   if (isDesign) {

@@ -32,7 +32,7 @@ export function useProfile() {
 }
 
 export function hasFullAccess(role: Profile['role'] | undefined) {
-  return role === 'gestor_equipe' || role === 'gestor_financeiro'
+  return role === 'owner' || role === 'gestor_equipe' || role === 'gestor_financeiro'
 }
 
 export function isOperacional(role: Profile['role'] | undefined) {

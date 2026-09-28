@@ -16,7 +16,7 @@ export default async function ConfiguracoesPage() {
 
   if (!profile) redirect('/login')
 
-  const isGestor = profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro'
+  const isGestor = profile.role === 'owner' || profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro'
   let categorias = []
 
   if (isGestor) {

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProjetosKanban from '@/components/projetos/ProjetosKanban'
 
-export const metadata = { title: 'Projetos | Jota Esportivo' }
+export const metadata = { title: 'Projetos | Grupo Jota' }
 
 export default async function ProjetosPage() {
   const supabase = (await createClient()) as any
@@ -16,7 +16,7 @@ export default async function ProjetosPage() {
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
   const nomeLower = profile?.nome?.toLowerCase() || ''
   const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')

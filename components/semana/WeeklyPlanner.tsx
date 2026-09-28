@@ -674,7 +674,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
   // WhatsApp Exporter Text Generator
   const whatsappText = useMemo(() => {
-    let text = `🗓️ *AGENDA DA SEMANA - JOTA ESPORTIVO*\n`
+    let text = `🗓️ *AGENDA DA SEMANA - GRUPO JOTA*\n`
     text += `De *${formatDDMM(currentWeekMonday)}* a *${formatDDMM(addDays(currentWeekMonday, 6))}*\n\n`
 
     const selectedMembroObj = membros.find(m => m.id === exportMembro)

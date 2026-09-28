@@ -28,7 +28,7 @@ export default function ImportarPlanilhaPage() {
 
   useEffect(() => {
     if (profile) {
-      const isGestor = profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro'
+      const isGestor = profile.role === 'owner' || profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro'
       if (profile.role === 'design_grafico') {
         router.push('/design')
       } else if (!isGestor) {

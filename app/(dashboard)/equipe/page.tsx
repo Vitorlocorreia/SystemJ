@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getInitials } from '@/lib/utils'
 
 const roleLabel: Record<string, string> = {
+  owner: 'Owner',
   gestor_equipe: 'Gestor de Equipe',
   gestor_financeiro: 'Gestor Financeiro',
   tecnologia: 'Tecnologia',
@@ -21,7 +22,7 @@ export default async function EquipePage() {
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
 
@@ -73,15 +74,19 @@ export default async function EquipePage() {
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-text-primary truncate group-hover:text-gold transition-colors duration-150">
-                    {membro.nome}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-text-primary truncate group-hover:text-gold transition-colors duration-150">
+                      {membro.nome}
+                    </p>
+                    {membro.cargo?.toLowerCase().includes('owner') && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-gold/15 text-gold border border-gold/30">
+                        Owner
+                      </span>
+                    )}
+                  </div>
                   <p className="text-text-secondary text-xs mt-0.5">
-                    {roleLabel[membro.role] ?? membro.role}
+                    {membro.cargo || (roleLabel[membro.role] ?? membro.role)}
                   </p>
-                  {membro.cargo && (
-                    <p className="text-text-secondary text-xs">{membro.cargo}</p>
-                  )}
                 </div>
               </div>
 

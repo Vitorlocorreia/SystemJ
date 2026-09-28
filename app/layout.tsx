@@ -2,8 +2,12 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Jota — Sistema Interno',
-  description: 'Sistema operacional e financeiro da Jota Marketing Esportivo',
+  title: 'Grupo Jota — Sistema Interno',
+  description: 'Sistema operacional e financeiro do Grupo Jota',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/icon.png',
+  },
 }
 
 export const viewport: Viewport = {

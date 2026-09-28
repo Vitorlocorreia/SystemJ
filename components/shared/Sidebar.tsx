@@ -43,7 +43,7 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   const isDesign = profile?.role === 'design_grafico'
   const nomeLower = profile?.nome?.toLowerCase() || ''
   const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
@@ -97,13 +97,13 @@ export default function Sidebar() {
           'flex items-center gap-3 px-4 py-5 border-b border-border',
           collapsed && 'justify-center px-0'
         )}>
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shrink-0">
-            <span className="font-display text-black text-base font-bold leading-none">J.</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center shrink-0 shadow-sm border border-white/10">
+            <img src="/logo.png" alt="Grupo Jota" className="w-full h-full object-cover" />
           </div>
           {!collapsed && (
             <div>
-              <p className="font-display text-sm font-bold text-text-primary leading-tight">Jota</p>
-              <p className="text-[10px] text-text-secondary leading-tight">Esportivo</p>
+              <p className="font-display text-sm font-bold text-text-primary leading-tight tracking-tight">Grupo Jota</p>
+              <p className="text-[10px] text-text-secondary leading-tight">Sistema Interno</p>
             </div>
           )}
         </div>
@@ -163,7 +163,7 @@ export default function Sidebar() {
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-text-primary truncate">{profile.nome}</p>
                   <p className="text-[10px] text-text-secondary truncate capitalize">
-                    {profile.role?.replace(/_/g, ' ')}
+                    {profile.cargo || (profile.role === 'owner' ? 'Owner' : profile.role?.replace(/_/g, ' '))}
                   </p>
                 </div>
               )}
@@ -201,11 +201,11 @@ export default function Sidebar() {
       {/* ── Mobile: Fixed Top Header (< md) ── */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-surface border-b border-border flex items-center justify-between px-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
-            <span className="font-display text-black text-sm font-bold leading-none">J.</span>
+          <div className="w-7 h-7 rounded-md overflow-hidden bg-white flex items-center justify-center shrink-0 border border-white/10">
+            <img src="/logo.png" alt="Grupo Jota" className="w-full h-full object-cover" />
           </div>
           <div>
-            <p className="font-display text-sm font-bold text-text-primary leading-tight">Jota</p>
+            <p className="font-display text-sm font-bold text-text-primary leading-tight">Grupo Jota</p>
           </div>
         </div>
         <button
@@ -236,10 +236,10 @@ export default function Sidebar() {
         {/* Drawer header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
-              <span className="font-display text-black text-sm font-bold leading-none">J.</span>
+            <div className="w-7 h-7 rounded-md overflow-hidden bg-white flex items-center justify-center shrink-0 border border-white/10">
+              <img src="/logo.png" alt="Grupo Jota" className="w-full h-full object-cover" />
             </div>
-            <p className="font-display text-sm font-bold text-text-primary">Jota Esportivo</p>
+            <p className="font-display text-sm font-bold text-text-primary">Grupo Jota</p>
           </div>
           <button
             onClick={() => setMobileOpen(false)}
@@ -269,7 +269,7 @@ export default function Sidebar() {
             <div className="min-w-0">
               <p className="text-sm font-semibold text-text-primary truncate">{profile.nome}</p>
               <p className="text-[11px] text-text-secondary truncate capitalize">
-                {profile.role?.replace(/_/g, ' ')}
+                {profile.cargo || (profile.role === 'owner' ? 'Owner' : profile.role?.replace(/_/g, ' '))}
               </p>
             </div>
           </div>

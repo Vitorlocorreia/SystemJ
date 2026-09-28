@@ -33,7 +33,7 @@ export default async function ClienteDetailPage({
 
   if (!cliente) notFound()
 
-  const isGestor = profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
   if (profile?.role === 'design_grafico') redirect('/design')
 
   // Filter tarefas that belong to this client

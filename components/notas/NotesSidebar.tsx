@@ -69,7 +69,7 @@ export default function NotesSidebar({
           </div>
           <div>
             <h2 className="font-display text-sm font-bold text-text-primary leading-none">Apple Notes</h2>
-            <span className="text-[9px] text-text-secondary">Engine Nativa Jota</span>
+            <span className="text-[9px] text-text-secondary">Engine Nativa Grupo Jota</span>
           </div>
         </div>
 
