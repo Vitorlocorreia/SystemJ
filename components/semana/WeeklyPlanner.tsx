@@ -485,13 +485,14 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
     if (error) {
       console.error('Error creating project for client', error)
+      toast.error('Erro ao vincular mesa do cliente: ' + error.message)
       return null
     }
 
     return newProj.id
   }
 
-  // Handle Create Demand — aberto para todos os usuários
+  // Handle Create Demand — aberto para todos os usuários (gestores, filmmakers, equipe)
   async function handleCreateDemand(e: React.FormEvent) {
     e.preventDefault()
     if (!newTitle.trim() || !newClienteId) {
@@ -518,7 +519,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       .from('tarefas')
       .insert({
         projeto_id: projId,
-        tipo_demanda: 'visita',
         titulo: newTitle.trim(),
         descricao: newDesc.trim() || null,
         status: 'a_fazer' as StatusTarefa,
@@ -623,9 +623,8 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     toast.success('Demanda atualizada!')
   }
 
-  // Handle Delete Demand
+  // Handle Delete Demand — aberto para gestores e equipe
   async function handleDeleteDemand(id: string) {
-    if (!isGestor) return
     if (!confirm('Deseja realmente excluir esta demanda?')) return
 
     const supabase = supabaseRef.current
@@ -1100,14 +1099,27 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   }`}
                 >
                   {/* Calendar Day Header */}
-                  <div className={`text-center px-2 pt-3 pb-2.5 border-b ${
+                  <div className={`px-2 pt-2.5 pb-2 border-b relative group/day ${
                     isToday ? 'border-gold/20' : 'border-border'
                   }`}>
-                    <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1 ${
-                      isToday ? 'text-gold/80' : 'text-text-secondary'
-                    }`}>
-                      {day.label.slice(0, 3)}
-                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className={`text-[9px] font-bold uppercase tracking-[0.15em] ${
+                        isToday ? 'text-gold/80' : 'text-text-secondary'
+                      }`}>
+                        {day.label.slice(0, 3)}
+                      </p>
+                      <button
+                        type="button"
+                        title={`Adicionar demanda em ${day.label}`}
+                        onClick={() => {
+                          setNewPrazo(day.dateStr)
+                          setIsCreateOpen(true)
+                        }}
+                        className="opacity-0 group-hover/day:opacity-100 transition-opacity p-0.5 rounded text-text-secondary hover:text-gold hover:bg-gold/10"
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
                     <div className={`w-7 h-7 mx-auto rounded-full flex items-center justify-center text-sm font-bold font-display ${
                       isToday
                         ? 'bg-gold text-background'
@@ -1116,7 +1128,7 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                       {day.date.getDate()}
                     </div>
                     {dayTasks.length > 0 && (
-                      <div className={`mt-1.5 text-[9px] font-semibold ${
+                      <div className={`mt-1 text-center text-[9px] font-semibold ${
                         isToday ? 'text-gold/60' : 'text-text-secondary/50'
                       }`}>
                         {dayTasks.length} {dayTasks.length === 1 ? 'demanda' : 'demandas'}
@@ -1258,7 +1270,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   <input
                     type="text"
                     required
-                    disabled={!isGestor}
                     value={editingTarefa.titulo}
                     onChange={e => setEditingTarefa({ ...editingTarefa, titulo: e.target.value })}
                     className="input text-sm"
@@ -1269,7 +1280,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                   <label className="text-xs font-semibold text-text-secondary uppercase">Descrição / Instruções</label>
                   <textarea
                     rows={4}
-                    disabled={!isGestor}
                     value={editingTarefa.descricao || ''}
                     onChange={e => setEditingTarefa({ ...editingTarefa, descricao: e.target.value })}
                     className="input text-sm resize-none"
@@ -1351,7 +1361,6 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
                            key={m.id}
                            type="button"
                            onClick={() => toggleResponsavelEdicao(m.id)}
-                           disabled={!isGestor}
                            className={`flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
                              isSelected 
                                ? 'border-gold bg-gold/10 text-text-primary' 
@@ -1378,17 +1387,15 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
               {/* Form Actions */}
               <div className="flex items-center justify-between pt-6 border-t border-border mt-6">
-                {isGestor && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteDemand(editingTarefa.id)}
-                    className="btn-danger flex items-center gap-1.5 text-xs py-1.5 px-3"
-                  >
-                    <Trash2 size={14} />
-                    Excluir
-                  </button>
-                )}
-                <div className={`flex items-center gap-2 ${!isGestor ? 'ml-auto' : ''}`}>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDemand(editingTarefa.id)}
+                  className="btn-danger flex items-center gap-1.5 text-xs py-1.5 px-3"
+                >
+                  <Trash2 size={14} />
+                  Excluir
+                </button>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setEditingTarefa(null)}

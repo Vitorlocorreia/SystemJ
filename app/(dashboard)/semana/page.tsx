@@ -16,7 +16,7 @@ export default async function SemanaPage() {
   const { data: tarefas } = await supabase
     .from('tarefas')
     .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
-    .or('tipo_demanda.eq.visita,tipo_demanda.is.null')
+    .or('tipo_demanda.eq.visita,tipo_demanda.eq.semana,tipo_demanda.is.null')
     .order('ordem')
 
   // Garantir filtragem estrita em memória: remover qualquer postagem/vídeo de rede social
