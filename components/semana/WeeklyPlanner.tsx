@@ -628,10 +628,15 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
     if (!confirm('Deseja realmente excluir esta demanda?')) return
 
     const supabase = supabaseRef.current
-    const { error } = await supabase.from('tarefas').delete().eq('id', id)
+    const { data, error } = await supabase.from('tarefas').delete().eq('id', id).select('id')
 
     if (error) {
       toast.error('Erro ao excluir demanda: ' + error.message)
+      return
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para excluir esta demanda no banco (apenas o gestor ou quem criou pode remover).')
       return
     }
 
