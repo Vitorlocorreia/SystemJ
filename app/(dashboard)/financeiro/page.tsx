@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FinanceiroClientView from '@/components/financeiro/FinanceiroClientView'
 import type { Lancamento, CategoriaFinanceiro, Cliente, Projeto, Cobranca } from '@/types'
+import { isMolaProfile } from '@/lib/utils'
 
 export const revalidate = 0
 
@@ -12,16 +13,18 @@ export default async function FinanceiroPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role')
+    .select('id, role, nome')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
 
+  const isMola = isMolaProfile(profile)
+
   // Buscar todos os dados financeiros em paralelo
-  const [
+  let [
     { data: lancamentos },
     { data: categorias },
     { data: clientes },
@@ -52,13 +55,23 @@ export default async function FinanceiroPage() {
       .order('data_vencimento', { ascending: false })
   ])
 
+  // Se for o Mola, filtrar estritamente para dados exclusivos da empresa Jota Esportivo
+  if (isMola) {
+    lancamentos = (lancamentos as any[] || []).filter(l => (l.empresa || 'jota_esportivo') === 'jota_esportivo')
+    clientes = (clientes as any[] || []).filter(c => (c.empresa || 'jota_esportivo') === 'jota_esportivo')
+    projetos = (projetos as any[] || []).filter(p => (p.empresa || 'jota_esportivo') === 'jota_esportivo')
+    cobrancas = (cobrancas as any[] || []).filter(cb => (cb.cliente?.empresa || 'jota_esportivo') === 'jota_esportivo')
+  }
+
   return (
     <div className="space-y-6">
       {/* Header do Módulo */}
       <div>
         <h1 className="font-display text-2xl md:text-display-md text-text-primary">Financeiro Corporativo</h1>
         <p className="text-text-secondary text-sm mt-1">
-          Gestão de fluxo de caixa, contratos de clientes, centros de custo e projeções financeiras do Grupo Jota.
+          {isMola
+            ? 'Visualização de fluxo de caixa, contratos e movimentações exclusivamente do Jota Esportivo.'
+            : 'Gestão de fluxo de caixa, contratos de clientes, centros de custo e projeções financeiras do Grupo Jota.'}
         </p>
       </div>
 
@@ -69,6 +82,8 @@ export default async function FinanceiroPage() {
         projetosIniciais={(projetos as Projeto[]) || []}
         cobrancasIniciais={(cobrancas as Cobranca[]) || []}
         currentUserId={profile?.id || user.id}
+        isVisualizador={isMola}
+        onlyEmpresa={isMola ? 'jota_esportivo' : undefined}
       />
     </div>
   )

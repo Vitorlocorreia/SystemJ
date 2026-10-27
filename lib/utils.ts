@@ -25,3 +25,10 @@ export function getInitials(name: string) {
     .join('')
     .toUpperCase()
 }
+
+export function isMolaProfile(profile?: { id?: string; user_id?: string; nome?: string | null } | null): boolean {
+  if (!profile) return false
+  if (profile.id === '71783872-5240-4f64-add8-6b7859065376') return true
+  if (profile.user_id === 'df1261ea-2fa1-409a-8089-65c7e901e532') return true
+  return profile.nome?.toLowerCase().includes('mola') ?? false
+}

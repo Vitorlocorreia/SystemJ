@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import WeeklyPlanner from '@/components/semana/WeeklyPlanner'
+import { isMolaProfile } from '@/lib/utils'
 
 // Sempre busca dados frescos do servidor — sem cache stale
 export const revalidate = 0
@@ -15,7 +16,7 @@ export default async function SemanaPage() {
   // Buscar apenas demandas de visitas/captações da agenda da semana (postagens de redes sociais ficam exclusivamente na mesa do cliente)
   const { data: tarefas } = await supabase
     .from('tarefas')
-    .select('*, responsavel:profiles(*), projeto:projetos(id, nome, cliente:clientes(id, nome))')
+    .select('*, responsavel:profiles(*), projeto:projetos(id, nome, empresa, cliente:clientes(id, nome, empresa))')
     .or('tipo_demanda.eq.visita,tipo_demanda.eq.semana,tipo_demanda.is.null')
     .order('ordem')
 
@@ -33,28 +34,39 @@ export default async function SemanaPage() {
   // Buscar todos os clientes
   const { data: clientes } = await supabase
     .from('clientes')
-    .select('id, nome, status')
+    .select('id, nome, status, empresa')
     .order('nome')
 
   // Buscar perfil do usuário logado para saber role
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, nome')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
   const isDesign = profile?.role === 'design_grafico'
 
   // Designers permanecem em /design, mas podem criar demandas pela agenda semanal se chegarem aqui
   if (isDesign) redirect('/design')
 
+  const isMola = isMolaProfile(profile)
+  const visitasFiltradas = isMola
+    ? visitasDaSemana.filter((t: any) => {
+        const emp = t.projeto?.empresa || t.projeto?.cliente?.empresa || 'jota_esportivo'
+        return emp === 'jota_esportivo'
+      })
+    : visitasDaSemana
+  const clientesFiltrados = isMola
+    ? (clientes || []).filter((c: any) => (c.empresa || 'jota_esportivo') === 'jota_esportivo')
+    : (clientes || [])
+
   return (
     <div className="space-y-6 animate-fade-in">
       <WeeklyPlanner
-        tarefasIniciais={visitasDaSemana}
+        tarefasIniciais={visitasFiltradas}
         membros={membros || []}
-        clientes={clientes || []}
+        clientes={clientesFiltrados}
         currentUserId={user.id}
         isGestor={isGestor}
       />

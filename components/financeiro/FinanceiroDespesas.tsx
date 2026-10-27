@@ -18,15 +18,19 @@ interface FinanceiroDespesasProps {
   categorias: CategoriaFinanceiro[]
   onNovoLancamento: () => void
   onEditarLancamento: (l: Lancamento) => void
+  isVisualizador?: boolean
+  onlyEmpresa?: 'jota_esportivo'
 }
 
 export default function FinanceiroDespesas({
   lancamentos,
   categorias,
   onNovoLancamento,
-  onEditarLancamento
+  onEditarLancamento,
+  isVisualizador = false,
+  onlyEmpresa
 }: FinanceiroDespesasProps) {
-  const [empresaFiltro, setEmpresaFiltro] = useState<'todas' | 'jota_esportivo' | 'jota_tech' | 'holding'>('todas')
+  const [empresaFiltro, setEmpresaFiltro] = useState<'todas' | 'jota_esportivo' | 'jota_tech' | 'holding'>(onlyEmpresa ? 'jota_esportivo' : 'todas')
   const [searchTerm, setSearchTerm] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas')
 
@@ -151,38 +155,46 @@ export default function FinanceiroDespesas({
 
           {/* Filtro por Empresa */}
           <div className="flex items-center p-1 bg-surface-elevated rounded-lg border border-border">
-            <button
-              onClick={() => setEmpresaFiltro('todas')}
-              className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
-                empresaFiltro === 'todas' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary'
-              }`}
-            >
-              Todas
-            </button>
-            <button
-              onClick={() => setEmpresaFiltro('jota_esportivo')}
-              className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
-                empresaFiltro === 'jota_esportivo' ? 'bg-gold-muted text-gold' : 'text-text-secondary'
-              }`}
-            >
-              ⚽ Esportivo
-            </button>
-            <button
-              onClick={() => setEmpresaFiltro('jota_tech')}
-              className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
-                empresaFiltro === 'jota_tech' ? 'bg-cyan-500/10 text-cyan-400' : 'text-text-secondary'
-              }`}
-            >
-              💻 Tech
-            </button>
-            <button
-              onClick={() => setEmpresaFiltro('holding')}
-              className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
-                empresaFiltro === 'holding' ? 'bg-purple-500/10 text-purple-400' : 'text-text-secondary'
-              }`}
-            >
-              🏢 Holding
-            </button>
+            {onlyEmpresa === 'jota_esportivo' ? (
+              <div className="py-1 px-2.5 rounded text-xs font-semibold bg-gold-muted text-gold">
+                ⚽ Jota Esportivo
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setEmpresaFiltro('todas')}
+                  className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
+                    empresaFiltro === 'todas' ? 'bg-surface text-text-primary shadow-sm' : 'text-text-secondary'
+                  }`}
+                >
+                  Todas
+                </button>
+                <button
+                  onClick={() => setEmpresaFiltro('jota_esportivo')}
+                  className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
+                    empresaFiltro === 'jota_esportivo' ? 'bg-gold-muted text-gold' : 'text-text-secondary'
+                  }`}
+                >
+                  ⚽ Esportivo
+                </button>
+                <button
+                  onClick={() => setEmpresaFiltro('jota_tech')}
+                  className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
+                    empresaFiltro === 'jota_tech' ? 'bg-cyan-500/10 text-cyan-400' : 'text-text-secondary'
+                  }`}
+                >
+                  💻 Tech
+                </button>
+                <button
+                  onClick={() => setEmpresaFiltro('holding')}
+                  className={`py-1 px-2.5 rounded text-xs font-semibold transition-all ${
+                    empresaFiltro === 'holding' ? 'bg-purple-500/10 text-purple-400' : 'text-text-secondary'
+                  }`}
+                >
+                  🏢 Holding
+                </button>
+              </>
+            )}
           </div>
 
           {/* Categoria Filtro */}
@@ -198,13 +210,15 @@ export default function FinanceiroDespesas({
           </select>
         </div>
 
-        <button
-          onClick={onNovoLancamento}
-          className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3 w-full md:w-auto justify-center"
-        >
-          <Plus size={14} />
-          <span>Registrar Despesa</span>
-        </button>
+        {!isVisualizador && (
+          <button
+            onClick={onNovoLancamento}
+            className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3 w-full md:w-auto justify-center"
+          >
+            <Plus size={14} />
+            <span>Registrar Despesa</span>
+          </button>
+        )}
       </div>
 
       {/* Tabela Detalhada de Despesas */}

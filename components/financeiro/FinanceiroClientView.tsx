@@ -20,7 +20,8 @@ import {
   TrendingUp,
   TrendingDown,
   Layers,
-  FileText
+  FileText,
+  Bell
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Lancamento, CategoriaFinanceiro, Cliente, ClientePublico, Projeto, EmpresaGrupo, Cobranca } from '@/types'
@@ -29,6 +30,7 @@ import FinanceiroGraficos from './FinanceiroGraficos'
 import FinanceiroContratos from './FinanceiroContratos'
 import FinanceiroDespesas from './FinanceiroDespesas'
 import FinanceiroPrevisao from './FinanceiroPrevisao'
+import FinanceiroLembretes from './FinanceiroLembretes'
 import LancamentoModal from './LancamentoModal'
 import CategoriasModal from './CategoriasModal'
 
@@ -39,9 +41,11 @@ interface FinanceiroClientViewProps {
   projetosIniciais: Projeto[]
   cobrancasIniciais?: Cobranca[]
   currentUserId: string
+  isVisualizador?: boolean
+  onlyEmpresa?: 'jota_esportivo'
 }
 
-type TabType = 'visao_geral' | 'contratos' | 'despesas' | 'previsao'
+type TabType = 'visao_geral' | 'lembretes' | 'contratos' | 'despesas' | 'previsao'
 type PeriodoType = 'mes_atual' | 'mes_anterior' | 'ultimos_3_meses' | 'ano_atual' | 'todos'
 
 export default function FinanceiroClientView({
@@ -50,7 +54,9 @@ export default function FinanceiroClientView({
   clientesIniciais,
   projetosIniciais,
   cobrancasIniciais = [],
-  currentUserId
+  currentUserId,
+  isVisualizador = false,
+  onlyEmpresa
 }: FinanceiroClientViewProps) {
   // Estado principal
   const [lancamentos, setLancamentos] = useState<Lancamento[]>(lancamentosIniciais)
@@ -61,7 +67,7 @@ export default function FinanceiroClientView({
 
   // Abas e Filtros da Holding
   const [abaAtiva, setAbaAtiva] = useState<TabType>('visao_geral')
-  const [empresaFiltro, setEmpresaFiltro] = useState<'todos' | 'jota_esportivo' | 'jota_tech' | 'holding'>('todos')
+  const [empresaFiltro, setEmpresaFiltro] = useState<'todos' | 'jota_esportivo' | 'jota_tech' | 'holding'>(onlyEmpresa ? 'jota_esportivo' : 'todos')
   const [periodoFiltro, setPeriodoFiltro] = useState<PeriodoType>('mes_atual')
   const [tipoFiltro, setTipoFiltro] = useState<'todos' | 'receita' | 'despesa'>('todos')
   const [searchTerm, setSearchTerm] = useState('')
@@ -71,6 +77,8 @@ export default function FinanceiroClientView({
   const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false)
   const [isCategoriasModalOpen, setIsCategoriasModalOpen] = useState(false)
   const [lancamentoParaEditar, setLancamentoParaEditar] = useState<Lancamento | null>(null)
+  const [modalDefaultTipo, setModalDefaultTipo] = useState<'receita' | 'despesa'>('receita')
+  const [modalDefaultStatus, setModalDefaultStatus] = useState<'pago' | 'pendente'>('pago')
 
   // Datas de referência
   const now = new Date()
@@ -167,9 +175,76 @@ export default function FinanceiroClientView({
     }
   }, [lancamentosPorEmpresa])
 
+  // Radar de Pendências / Alertas de Vencimento
+  const alertaPendencias = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    const mesKey = today.slice(0, 7)
+    let atrasadasQtd = 0
+    let atrasadasValor = 0
+    let hojeQtd = 0
+    let hojeValor = 0
+
+    // 1. Mensalidades de contratos de clientes ativos
+    clientes.filter(c => c.status === 'ativo' && Number(c.valor_contrato) > 0).forEach(c => {
+      const emp = c.empresa || 'jota_esportivo'
+      if (empresaFiltro !== 'todos' && emp !== empresaFiltro) return
+
+      const cb = cobrancas.find(x => x.cliente_id === c.id && (x.mes_referencia?.startsWith(mesKey) || x.data_vencimento?.startsWith(mesKey)))
+      if (cb?.status === 'pago') return
+
+      const diaVenc = c.dia_vencimento || 10
+      const diaVencPad = String(Math.min(diaVenc, 28)).padStart(2, '0')
+      const dataVenc = cb?.data_vencimento || `${mesKey}-${diaVencPad}`
+      const valor = cb ? (Number(cb.valor_total) - Number(cb.valor_pago || 0)) : Number(c.valor_contrato || 0)
+
+      if (dataVenc < today) {
+        atrasadasQtd++
+        atrasadasValor += valor
+      } else if (dataVenc === today) {
+        hojeQtd++
+        hojeValor += valor
+      }
+    })
+
+    // 2. Lançamentos com status pendente
+    lancamentos.forEach(l => {
+      if (l.cobranca_id) return
+      const emp = (l.empresa as string) || 'jota_esportivo'
+      if (empresaFiltro !== 'todos' && emp !== empresaFiltro) return
+      if (l.status === 'pago') return
+      if (l.status === 'pendente') {
+        const venc = l.data_vencimento || l.data_lancamento
+        if (venc < today) {
+          atrasadasQtd++
+          atrasadasValor += Number(l.valor || 0)
+        } else if (venc === today) {
+          hojeQtd++
+          hojeValor += Number(l.valor || 0)
+        }
+      }
+    })
+
+    return {
+      totalUrgente: atrasadasQtd + hojeQtd,
+      atrasadasQtd,
+      atrasadasValor,
+      hojeQtd,
+      hojeValor
+    }
+  }, [clientes, cobrancas, lancamentos, empresaFiltro])
+
   // Manipulação de Lançamentos
   function handleNovoLancamento() {
     setLancamentoParaEditar(null)
+    setModalDefaultTipo('receita')
+    setModalDefaultStatus('pago')
+    setIsLancamentoModalOpen(true)
+  }
+
+  function handleAbrirNovoLancamento(tipo: 'receita' | 'despesa' = 'receita', status: 'pago' | 'pendente' = 'pendente') {
+    setLancamentoParaEditar(null)
+    setModalDefaultTipo(tipo)
+    setModalDefaultStatus(status)
     setIsLancamentoModalOpen(true)
   }
 
@@ -233,56 +308,69 @@ export default function FinanceiroClientView({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-surface border border-border p-4 rounded-xl">
         {/* Seletor Multi-Empresa da Holding */}
         <div className="flex items-center gap-1.5 p-1 bg-surface-elevated rounded-lg border border-border overflow-x-auto w-full md:w-auto">
-          <button
-            onClick={() => setEmpresaFiltro('todos')}
-            className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              empresaFiltro === 'todos'
-                ? 'bg-surface text-text-primary shadow-sm border border-border/80'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            <Building2 size={13} className="text-gold" />
-            <span>🏢 Grupo Jota (Holding)</span>
-          </button>
-          <button
-            onClick={() => setEmpresaFiltro('jota_esportivo')}
-            className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              empresaFiltro === 'jota_esportivo'
-                ? 'bg-gold-muted text-gold border border-gold/30 shadow-gold-glow'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            <span>⚽ Jota Esportivo</span>
-          </button>
-          <button
-            onClick={() => setEmpresaFiltro('jota_tech')}
-            className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              empresaFiltro === 'jota_tech'
-                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                : 'text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            <span>💻 Jota Tech</span>
-          </button>
+          {onlyEmpresa === 'jota_esportivo' ? (
+            <div className="py-1.5 px-3 rounded-md text-xs font-bold bg-gold-muted text-gold border border-gold/30 shadow-gold-glow flex items-center gap-1.5 whitespace-nowrap">
+              <span>⚽ Jota Esportivo</span>
+              <span className="text-[10px] opacity-75 font-normal ml-1">(Visualização exclusiva)</span>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={() => setEmpresaFiltro('todos')}
+                className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  empresaFiltro === 'todos'
+                    ? 'bg-surface text-text-primary shadow-sm border border-border/80'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <Building2 size={13} className="text-gold" />
+                <span>🏢 Grupo Jota (Holding)</span>
+              </button>
+              <button
+                onClick={() => setEmpresaFiltro('jota_esportivo')}
+                className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  empresaFiltro === 'jota_esportivo'
+                    ? 'bg-gold-muted text-gold border border-gold/30 shadow-gold-glow'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>⚽ Jota Esportivo</span>
+              </button>
+              <button
+                onClick={() => setEmpresaFiltro('jota_tech')}
+                className={`py-1.5 px-3 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  empresaFiltro === 'jota_tech'
+                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                    : 'text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>💻 Jota Tech</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Ações Rápidas */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setIsCategoriasModalOpen(true)}
-            className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
-            title="Gerenciar Categorias"
-          >
-            <Layers size={14} />
-            <span>Categorias</span>
-          </button>
-          <Link
-            href="/financeiro/importar"
-            className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
-          >
-            <Upload size={14} />
-            <span>Importar</span>
-          </Link>
+          {!isVisualizador && (
+            <>
+              <button
+                onClick={() => setIsCategoriasModalOpen(true)}
+                className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
+                title="Gerenciar Categorias"
+              >
+                <Layers size={14} />
+                <span>Categorias</span>
+              </button>
+              <Link
+                href="/financeiro/importar"
+                className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
+              >
+                <Upload size={14} />
+                <span>Importar</span>
+              </Link>
+            </>
+          )}
           <button
             onClick={handleExportarExcel}
             className="btn-secondary flex items-center gap-1.5 text-xs py-2 px-3"
@@ -291,13 +379,15 @@ export default function FinanceiroClientView({
             <Download size={14} />
             <span className="hidden sm:inline">Exportar Excel</span>
           </button>
-          <button
-            onClick={handleNovoLancamento}
-            className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3.5 shadow-gold-glow"
-          >
-            <Plus size={15} />
-            <span>Novo Lançamento</span>
-          </button>
+          {!isVisualizador && (
+            <button
+              onClick={handleNovoLancamento}
+              className="btn-primary flex items-center gap-1.5 text-xs py-2 px-3.5 shadow-gold-glow"
+            >
+              <Plus size={15} />
+              <span>Novo Lançamento</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -313,6 +403,27 @@ export default function FinanceiroClientView({
         >
           <TrendingUp size={14} />
           <span>Visão Geral & Lançamentos</span>
+        </button>
+
+        <button
+          onClick={() => setAbaAtiva('lembretes')}
+          className={`py-3.5 px-4 text-xs font-bold transition-all border-b-2 whitespace-nowrap flex items-center gap-2 ${
+            abaAtiva === 'lembretes'
+              ? 'border-gold text-gold'
+              : 'border-transparent text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          <Bell size={14} className={alertaPendencias.totalUrgente > 0 ? 'text-amber-400 animate-bounce' : ''} />
+          <span>Lembretes & Contas</span>
+          {alertaPendencias.totalUrgente > 0 ? (
+            <span className="bg-danger text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold animate-pulse">
+              {alertaPendencias.totalUrgente}
+            </span>
+          ) : (
+            <span className="bg-surface-elevated text-text-secondary text-[9px] px-1.5 py-0.5 rounded-full font-medium">
+              Radar
+            </span>
+          )}
         </button>
 
         <button
@@ -361,6 +472,40 @@ export default function FinanceiroClientView({
       {/* ─── ABA 1: VISÃO GERAL & LANÇAMENTOS ────────────────────────────────────────── */}
       {abaAtiva === 'visao_geral' && (
         <div className="space-y-6 animate-fade-in">
+          {/* Banner de Alerta de Contas a Pagar / Receber */}
+          {alertaPendencias.totalUrgente > 0 && (
+            <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
+                  <Bell size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-text-primary">
+                    Atenção: Existem {alertaPendencias.totalUrgente} conta(s) com vencimento pendente exigindo atenção!
+                  </p>
+                  <p className="text-[11px] text-text-secondary mt-0.5">
+                    {alertaPendencias.atrasadasQtd > 0 && (
+                      <span className="text-danger font-semibold">
+                        🚨 {alertaPendencias.atrasadasQtd} atrasada(s) ({formatCurrency(alertaPendencias.atrasadasValor)}){' '}
+                      </span>
+                    )}
+                    {alertaPendencias.atrasadasQtd > 0 && alertaPendencias.hojeQtd > 0 && <span>• </span>}
+                    {alertaPendencias.hojeQtd > 0 && (
+                      <span className="text-amber-400 font-semibold">
+                        ⚡ {alertaPendencias.hojeQtd} vence(m) hoje ({formatCurrency(alertaPendencias.hojeValor)})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setAbaAtiva('lembretes')}
+                className="btn-primary text-xs py-1.5 px-3 whitespace-nowrap shadow-gold-glow shrink-0"
+              >
+                Abrir Painel de Vencimentos &rarr;
+              </button>
+            </div>
+          )}
           {/* Seletor de Período e KPIs */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-surface border border-border p-3.5 rounded-xl">
             <div className="flex items-center gap-2">
@@ -540,13 +685,15 @@ export default function FinanceiroClientView({
                     <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Categoria</th>
                     <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Cliente / Projeto</th>
                     <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Valor</th>
-                    <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    {!isVisualizador && (
+                      <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {lancamentosFiltrados.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-text-secondary italic">
+                      <td colSpan={isVisualizador ? 6 : 7} className="px-5 py-12 text-center text-text-secondary italic">
                         Nenhum lançamento registrado no período com os filtros atuais.
                       </td>
                     </tr>
@@ -593,24 +740,26 @@ export default function FinanceiroClientView({
                           }`}>
                             {l.tipo === 'despesa' ? '−' : '+'}{formatCurrency(l.valor)}
                           </td>
-                          <td className="px-5 py-3.5 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleEditarLancamento(l)}
-                                className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-surface transition-colors"
-                                title="Editar Lançamento"
-                              >
-                                <Edit2 size={13} />
-                              </button>
-                              <button
-                                onClick={() => handleExcluirLancamento(l.id, l.descricao)}
-                                className="p-1.5 text-text-secondary hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
-                                title="Excluir Lançamento"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </td>
+                          {!isVisualizador && (
+                            <td className="px-5 py-3.5 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => handleEditarLancamento(l)}
+                                  className="p-1.5 text-text-secondary hover:text-text-primary rounded-lg hover:bg-surface transition-colors"
+                                  title="Editar Lançamento"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleExcluirLancamento(l.id, l.descricao)}
+                                  className="p-1.5 text-text-secondary hover:text-danger rounded-lg hover:bg-danger/10 transition-colors"
+                                  title="Excluir Lançamento"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       )
                     })
@@ -622,7 +771,38 @@ export default function FinanceiroClientView({
         </div>
       )}
 
-      {/* ─── ABA 2: CONTRATOS & CLIENTES (MRR) ────────────────────────────────────── */}
+      {/* ─── ABA 2: LEMBRETES & CONTAS (A PAGAR E A RECEBER) ──────────────────── */}
+      {abaAtiva === 'lembretes' && (
+        <FinanceiroLembretes
+          lancamentos={lancamentos}
+          clientes={clientes}
+          cobrancas={cobrancas}
+          filtroEmpresaGlobal={empresaFiltro}
+          currentUserId={currentUserId}
+          isVisualizador={isVisualizador}
+          onlyEmpresa={onlyEmpresa}
+          onLancamentoUpdated={(salvo) => {
+            setLancamentos(prev => prev.map(l => l.id === salvo.id ? salvo : l))
+          }}
+          onLancamentoDeleted={(id) => {
+            setLancamentos(prev => prev.filter(l => l.id !== id))
+          }}
+          onCobrancaUpdated={(cobrancaSalva) => {
+            setCobrancas(prev => {
+              const exists = prev.some(c => c.id === cobrancaSalva.id)
+              if (exists) {
+                return prev.map(c => c.id === cobrancaSalva.id ? cobrancaSalva : c)
+              }
+              return [cobrancaSalva, ...prev]
+            })
+          }}
+          onAbrirNovoLancamento={(tipo, st) => {
+            handleAbrirNovoLancamento(tipo, st)
+          }}
+        />
+      )}
+
+      {/* ─── ABA 3: CONTRATOS & CLIENTES (MRR) ────────────────────────────────────── */}
       {abaAtiva === 'contratos' && (
         <FinanceiroContratos
           clientes={clientes}
@@ -633,20 +813,23 @@ export default function FinanceiroClientView({
           onClientesChange={setClientes}
           onCobrancasChange={setCobrancas}
           onLancamentoCreated={(l) => setLancamentos(prev => [l, ...prev])}
+          isVisualizador={isVisualizador}
         />
       )}
 
-      {/* ─── ABA 3: DESPESAS & CENTROS DE CUSTO ──────────────────────────────────── */}
+      {/* ─── ABA 4: DESPESAS & CENTROS DE CUSTO ──────────────────────────────────── */}
       {abaAtiva === 'despesas' && (
         <FinanceiroDespesas
           lancamentos={lancamentos}
           categorias={categorias}
           onNovoLancamento={handleNovoLancamento}
           onEditarLancamento={handleEditarLancamento}
+          isVisualizador={isVisualizador}
+          onlyEmpresa={onlyEmpresa}
         />
       )}
 
-      {/* ─── ABA 4: PREVISÃO FINANCEIRA (FORECAST) ────────────────────────────────── */}
+      {/* ─── ABA 5: PREVISÃO FINANCEIRA (FORECAST) ────────────────────────────────── */}
       {abaAtiva === 'previsao' && (
         <FinanceiroPrevisao
           clientes={clientes}
@@ -666,6 +849,8 @@ export default function FinanceiroClientView({
         currentUserId={currentUserId}
         lancamentoParaEditar={lancamentoParaEditar}
         defaultEmpresa={empresaFiltro === 'todos' ? 'jota_esportivo' : empresaFiltro}
+        defaultTipo={modalDefaultTipo}
+        defaultStatus={modalDefaultStatus}
       />
 
       <CategoriasModal

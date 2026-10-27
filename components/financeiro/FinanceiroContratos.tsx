@@ -35,6 +35,7 @@ interface FinanceiroContratosProps {
   onClientesChange: (clientes: Cliente[]) => void
   onCobrancasChange: (cobrancas: Cobranca[]) => void
   onLancamentoCreated?: (lancamento: Lancamento) => void
+  isVisualizador?: boolean
 }
 
 const MONTH_NAMES = [
@@ -50,7 +51,8 @@ export default function FinanceiroContratos({
   currentUserId,
   onClientesChange,
   onCobrancasChange,
-  onLancamentoCreated
+  onLancamentoCreated,
+  isVisualizador = false
 }: FinanceiroContratosProps) {
   const [activeSubTab, setActiveSubTab] = useState<'mensalidades' | 'contratos'>('mensalidades')
   const [searchTerm, setSearchTerm] = useState('')
@@ -626,7 +628,9 @@ export default function FinanceiroContratos({
                     <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Valor Contrato</th>
                     <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Valor Pago</th>
                     <th className="text-center px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Status</th>
-                    <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    {!isVisualizador && (
+                      <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -833,7 +837,9 @@ export default function FinanceiroContratos({
                     <th className="text-left px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Vigência do Contrato</th>
                     <th className="text-center px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Dia Vencimento</th>
                     <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Valor Mensal</th>
-                    <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    {!isVisualizador && (
+                      <th className="text-right px-5 py-3.5 text-text-secondary font-medium uppercase tracking-wider">Ações</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">

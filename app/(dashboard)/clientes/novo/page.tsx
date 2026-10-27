@@ -7,10 +7,12 @@ import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useProfile } from '@/lib/hooks/useProfile'
+import { isMolaProfile } from '@/lib/utils'
 
 export default function NovoClientePage() {
   const router = useRouter()
   const { profile } = useProfile()
+  const isMola = isMolaProfile(profile)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     nome: '',

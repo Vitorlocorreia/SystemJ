@@ -11,11 +11,11 @@ export default async function Home() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, nome')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
   const isDesign = profile?.role === 'design_grafico'
   
   if (isDesign) {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import GlobalKanbanBoard from '@/components/demandas/GlobalKanbanBoard'
+import { isMolaProfile } from '@/lib/utils'
 
 export default async function DemandasPage() {
   const supabase = (await createClient()) as any
@@ -21,7 +22,7 @@ export default async function DemandasPage() {
     .select(`
       *,
       responsavel:profiles!responsavel_id(*),
-      projeto:projetos(id, nome, cliente:clientes(id, nome))
+      projeto:projetos(id, nome, empresa, cliente:clientes(id, nome, empresa))
     `)
     .order('ordem', { ascending: true })
 

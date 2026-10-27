@@ -583,16 +583,18 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
       referencias: editingTarefa.referencias || null,
     }
 
-    let { error } = await supabase
+    let { data, error } = await supabase
       .from('tarefas')
       .update(updatePayload)
       .eq('id', editingTarefa.id)
+      .select('id')
 
     if (error) {
       delete updatePayload.notas_colaborador
       delete updatePayload.checklist_itens
       delete updatePayload.referencias
-      const retry = await supabase.from('tarefas').update(updatePayload).eq('id', editingTarefa.id)
+      const retry = await supabase.from('tarefas').update(updatePayload).eq('id', editingTarefa.id).select('id')
+      data = retry.data
       error = retry.error
     }
 
@@ -600,6 +602,11 @@ export default function WeeklyPlanner({ tarefasIniciais, membros, clientes, curr
 
     if (error) {
       toast.error('Erro ao atualizar demanda: ' + error.message)
+      return
+    }
+
+    if (!data || data.length === 0) {
+      toast.error('Sem permissão para atualizar esta demanda no banco.')
       return
     }
 

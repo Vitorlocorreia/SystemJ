@@ -43,10 +43,10 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
-  const isDesign = profile?.role === 'design_grafico'
   const nomeLower = profile?.nome?.toLowerCase() || ''
-  const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan'))
+  const isDesign = profile?.role === 'design_grafico'
+  const isRennan = nomeLower.includes('rennan') || nomeLower.includes('renan')
 
   const visibleItems = navItems.filter(item => {
     if (isDesign) {
@@ -55,7 +55,7 @@ export default function Sidebar() {
     if (isGestor) {
       return item.href !== '/design'
     }
-    if (isMolaOrRennan) {
+    if (isRennan) {
       return item.href === '/semana' || item.href === '/demandas' || item.href === '/projetos' || item.href === '/configuracoes'
     }
     return item.href === '/semana' || item.href === '/demandas' || item.href === '/configuracoes'

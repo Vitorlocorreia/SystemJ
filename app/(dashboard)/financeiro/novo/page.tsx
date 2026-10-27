@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NovoLancamentoForm from './NovoLancamentoForm'
+import { isMolaProfile } from '@/lib/utils'
 
 export default async function NovoLancamentoPage() {
   const supabase = await createClient()
@@ -9,13 +10,18 @@ export default async function NovoLancamentoPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('id, role, nome')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
+
+  // Mola é apenas visualizador no financeiro e não pode cadastrar lançamentos
+  if (isMolaProfile(profile)) {
+    redirect('/financeiro')
+  }
 
   // Fetch financial categories, clients, and projects
   const [

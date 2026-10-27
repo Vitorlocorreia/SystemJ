@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProjetosKanban from '@/components/projetos/ProjetosKanban'
+import { isMolaProfile } from '@/lib/utils'
 
 export const metadata = { title: 'Projetos | Grupo Jota' }
 
@@ -16,12 +17,12 @@ export default async function ProjetosPage() {
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
-  const isDesign = profile?.role === 'design_grafico'
   const nomeLower = profile?.nome?.toLowerCase() || ''
-  const isMolaOrRennan = nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan'))
+  const isDesign = profile?.role === 'design_grafico'
+  const isRennan = nomeLower.includes('rennan') || nomeLower.includes('renan')
 
-  if (!isGestor && !isDesign && !isMolaOrRennan) redirect('/semana')
+  if (!isGestor && !isDesign && !isRennan) redirect('/semana')
 
   const [
     { data: projetos },
@@ -30,17 +31,25 @@ export default async function ProjetosPage() {
   ] = await Promise.all([
     supabase
       .from('projetos_kanban')
-      .select('*, cliente:clientes(id,nome,email,telefone,segmento,status,created_at), responsavel:profiles!responsavel_id(id,user_id,nome,cargo,role,avatar_url,created_at)')
+      .select('*, cliente:clientes(id,nome,email,telefone,segmento,status,empresa,created_at), responsavel:profiles!responsavel_id(id,user_id,nome,cargo,role,avatar_url,created_at)')
       .order('ordem', { ascending: true }),
     supabase.from('profiles').select('*').order('nome'),
-    supabase.from('clientes').select('id,nome,email,telefone,segmento,status,created_at').eq('status', 'ativo').order('nome'),
+    supabase.from('clientes').select('id,nome,email,telefone,segmento,status,empresa,created_at').eq('status', 'ativo').order('nome'),
   ])
+
+  const isMola = isMolaProfile(profile)
+  const projetosVisiveis = isMola
+    ? (projetos || []).filter((p: any) => (p.empresa || p.cliente?.empresa || 'jota_esportivo') === 'jota_esportivo')
+    : (projetos || [])
+  const clientesVisiveis = isMola
+    ? (clientes || []).filter((c: any) => (c.empresa || 'jota_esportivo') === 'jota_esportivo')
+    : (clientes || [])
 
   return (
     <ProjetosKanban
-      projetosIniciais={projetos || []}
+      projetosIniciais={projetosVisiveis}
       membros={membros || []}
-      clientes={clientes || []}
+      clientes={clientesVisiveis}
       currentUserId={user.id}
     />
   )

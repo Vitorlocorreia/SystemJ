@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
 import type { StatusCliente } from '@/types'
+import { isMolaProfile } from '@/lib/utils'
 
 const statusLabel: Record<StatusCliente, string> = {
   prospecto: 'Prospecto',
@@ -27,19 +28,21 @@ export default async function ClientesPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('id, role, nome')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
 
   const { status, q } = await searchParams
 
+  const isMola = isMolaProfile(profile)
+
   let query = supabase
     .from('clientes')
-    .select('id, nome, cnpj_cpf, email, telefone, segmento, status, valor_contrato, created_at')
+    .select('id, nome, cnpj_cpf, email, telefone, segmento, status, valor_contrato, empresa, created_at')
     .order('created_at', { ascending: false })
 
   if (status && status !== 'todos') {
@@ -49,7 +52,14 @@ export default async function ClientesPage({
     query = query.ilike('nome', `%${q}%`)
   }
 
-  const { data: clientes, error } = await query
+  if (isMola) {
+    query = query.or('empresa.eq.jota_esportivo,empresa.is.null')
+  }
+
+  const { data: rawClientes, error } = await query
+  const clientes = isMola
+    ? (rawClientes || []).filter((c: any) => (c.empresa || 'jota_esportivo') === 'jota_esportivo')
+    : (rawClientes || [])
 
   return (
     <div className="space-y-5 animate-fade-in">

@@ -7,7 +7,8 @@ import { toast } from 'sonner'
 import { ArrowLeft, ShieldAlert } from 'lucide-react'
 import Link from 'next/link'
 import type { Cliente, EmpresaGrupo } from '@/types'
-import { getInitials } from '@/lib/utils'
+import { getInitials, isMolaProfile } from '@/lib/utils'
+import { useProfile } from '@/lib/hooks/useProfile'
 import ExcluirClienteButton from '@/components/clientes/ExcluirClienteButton'
 
 interface EditarClienteFormProps {
@@ -17,6 +18,8 @@ interface EditarClienteFormProps {
 
 export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFormProps) {
   const router = useRouter()
+  const { profile } = useProfile()
+  const isMola = isMolaProfile(profile)
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     nome: cliente.nome || '',
@@ -190,11 +193,16 @@ export default function EditarClienteForm({ cliente, isGestor }: EditarClienteFo
               name="empresa"
               value={form.empresa}
               onChange={handleChange}
-              className="input focus:ring-gold/20 focus:border-gold"
+              disabled={isMola}
+              className="input focus:ring-gold/20 focus:border-gold disabled:opacity-75"
             >
               <option value="jota_esportivo">⚽ Jota Esportivo</option>
-              <option value="jota_tech">💻 Jota Tech</option>
-              <option value="holding">🏛️ Holding (Grupo Jota)</option>
+              {!isMola && (
+                <>
+                  <option value="jota_tech">💻 Jota Tech</option>
+                  <option value="holding">🏛️ Holding (Grupo Jota)</option>
+                </>
+              )}
             </select>
           </div>
 

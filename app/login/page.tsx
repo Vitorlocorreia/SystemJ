@@ -34,11 +34,11 @@ export default function LoginPage() {
     // Buscar role do usuário para redirecionar corretamente
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, nome')
       .eq('user_id', authData.user.id)
       .single()
 
-    const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro'
+    const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
 
     router.push(isGestor ? '/dashboard' : '/semana')
     router.refresh()

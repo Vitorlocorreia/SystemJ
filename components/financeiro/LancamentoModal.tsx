@@ -16,6 +16,8 @@ interface LancamentoModalProps {
   currentUserId: string
   lancamentoParaEditar?: Lancamento | null
   defaultEmpresa?: EmpresaGrupo
+  defaultTipo?: 'receita' | 'despesa'
+  defaultStatus?: 'pago' | 'pendente'
 }
 
 export default function LancamentoModal({
@@ -27,10 +29,13 @@ export default function LancamentoModal({
   projetos,
   currentUserId,
   lancamentoParaEditar,
-  defaultEmpresa = 'jota_esportivo'
+  defaultEmpresa = 'jota_esportivo',
+  defaultTipo = 'receita',
+  defaultStatus = 'pago'
 }: LancamentoModalProps) {
   const [loading, setLoading] = useState(false)
-  const [tipo, setTipo] = useState<'receita' | 'despesa'>('receita')
+  const [tipo, setTipo] = useState<'receita' | 'despesa'>(defaultTipo)
+  const [status, setStatus] = useState<'pago' | 'pendente'>(defaultStatus)
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
@@ -38,12 +43,14 @@ export default function LancamentoModal({
   const [projetoId, setProjetoId] = useState('')
   const [empresa, setEmpresa] = useState<EmpresaGrupo>(defaultEmpresa)
   const [dataLancamento, setDataLancamento] = useState(new Date().toISOString().split('T')[0])
+  const [dataVencimento, setDataVencimento] = useState(new Date().toISOString().split('T')[0])
   const [comprovanteUrl, setComprovanteUrl] = useState('')
   const [isRecorrente, setIsRecorrente] = useState(false)
 
   useEffect(() => {
     if (lancamentoParaEditar) {
       setTipo(lancamentoParaEditar.tipo)
+      setStatus(lancamentoParaEditar.status === 'pendente' ? 'pendente' : 'pago')
       setDescricao(lancamentoParaEditar.descricao)
       setValor(lancamentoParaEditar.valor.toString())
       setCategoriaId(lancamentoParaEditar.categoria_id || '')
@@ -51,21 +58,25 @@ export default function LancamentoModal({
       setProjetoId(lancamentoParaEditar.projeto_id || '')
       setEmpresa((lancamentoParaEditar.empresa as EmpresaGrupo) || defaultEmpresa)
       setDataLancamento(lancamentoParaEditar.data_lancamento)
+      setDataVencimento(lancamentoParaEditar.data_vencimento || lancamentoParaEditar.data_lancamento)
       setComprovanteUrl(lancamentoParaEditar.comprovante_url || '')
       setIsRecorrente(Boolean(lancamentoParaEditar.is_recorrente))
     } else {
-      setTipo('receita')
+      setTipo(defaultTipo)
+      setStatus(defaultStatus)
       setDescricao('')
       setValor('')
       setCategoriaId('')
       setClienteId('')
       setProjetoId('')
       setEmpresa(defaultEmpresa)
-      setDataLancamento(new Date().toISOString().split('T')[0])
+      const today = new Date().toISOString().split('T')[0]
+      setDataLancamento(today)
+      setDataVencimento(today)
       setComprovanteUrl('')
       setIsRecorrente(false)
     }
-  }, [lancamentoParaEditar, isOpen, defaultEmpresa])
+  }, [lancamentoParaEditar, isOpen, defaultEmpresa, defaultTipo, defaultStatus])
 
   if (!isOpen) return null
 
@@ -91,6 +102,7 @@ export default function LancamentoModal({
     try {
       const payload: any = {
         tipo,
+        status,
         descricao: descricao.trim(),
         valor: valorNum,
         categoria_id: categoriaId || null,
@@ -98,6 +110,8 @@ export default function LancamentoModal({
         projeto_id: projetoId || null,
         empresa,
         data_lancamento: dataLancamento,
+        data_vencimento: dataVencimento || dataLancamento,
+        data_pagamento: status === 'pago' ? (lancamentoParaEditar?.data_pagamento || dataLancamento) : null,
         comprovante_url: comprovanteUrl.trim() || null,
         is_recorrente: tipo === 'despesa' ? isRecorrente : false,
       }
@@ -261,6 +275,42 @@ export default function LancamentoModal({
             </div>
           </div>
 
+          {/* Situação / Status do Pagamento */}
+          <div>
+            <label className="label mb-1.5 flex items-center justify-between">
+              <span>Situação do Lançamento</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${status === 'pendente' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'}`}>
+                {status === 'pendente' 
+                  ? (tipo === 'despesa' ? '⏳ Conta a Pagar (Pendente)' : '⏳ Conta a Receber (Pendente)')
+                  : (tipo === 'despesa' ? '✅ Já Pago / Liquidado' : '✅ Já Recebido / Liquidado')}
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setStatus('pago')}
+                className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  status === 'pago'
+                    ? 'border-emerald-500 bg-emerald-500/15 text-emerald-400 font-bold'
+                    : 'border-border bg-surface-elevated text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>✅ Já Liquidado / Pago</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus('pendente')}
+                className={`py-2 px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  status === 'pendente'
+                    ? 'border-amber-500 bg-amber-500/15 text-amber-400 font-bold shadow-sm'
+                    : 'border-border bg-surface-elevated text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                <span>⏳ Pendente ({tipo === 'despesa' ? 'A Pagar' : 'A Receber'})</span>
+              </button>
+            </div>
+          </div>
+
           {/* Valor e Data */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -281,13 +331,21 @@ export default function LancamentoModal({
             <div>
               <label className="label mb-1 flex items-center gap-1.5">
                 <Calendar size={13} className="text-text-secondary" />
-                <span>Data do Lançamento *</span>
+                <span>{status === 'pendente' ? 'Data de Vencimento *' : 'Data do Lançamento *'}</span>
               </label>
               <input
                 type="date"
                 required
-                value={dataLancamento}
-                onChange={e => setDataLancamento(e.target.value)}
+                value={status === 'pendente' ? dataVencimento : dataLancamento}
+                onChange={e => {
+                  if (status === 'pendente') {
+                    setDataVencimento(e.target.value)
+                    setDataLancamento(e.target.value)
+                  } else {
+                    setDataLancamento(e.target.value)
+                    setDataVencimento(e.target.value)
+                  }
+                }}
                 className="input text-sm"
               />
             </div>
