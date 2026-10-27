@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
 import Sidebar from '@/components/shared/Sidebar'
+import TopHeader from '@/components/shared/TopHeader'
 import { Toaster } from 'sonner'
 
 export default async function DashboardLayout({
@@ -11,6 +11,7 @@ export default async function DashboardLayout({
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
+        <TopHeader />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 pt-[72px] md:pt-6 pb-6">
           {children}
         </main>

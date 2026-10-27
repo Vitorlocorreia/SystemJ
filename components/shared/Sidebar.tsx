@@ -23,6 +23,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/useProfile'
 import { cn, getInitials } from '@/lib/utils'
+import GestorNotificationBell from './GestorNotificationBell'
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -208,13 +209,16 @@ export default function Sidebar() {
             <p className="font-display text-sm font-bold text-text-primary leading-tight">Grupo Jota</p>
           </div>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
-          aria-label="Abrir menu"
-        >
-          <Menu size={22} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <GestorNotificationBell />
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-elevated transition-colors"
+            aria-label="Abrir menu"
+          >
+            <Menu size={22} />
+          </button>
+        </div>
       </header>
 
       {/* ── Mobile Drawer Overlay ── */}
