@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/useProfile'
-import { isMolaProfile, formatCurrency, formatDate } from '@/lib/utils'
+import { isMolaProfile, isFilmmakerProfile, formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Bell,
@@ -47,15 +47,18 @@ export default function GestorNotificationBell() {
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // 1. Verificação Estrita de Gestor
+  // 1. Verificação Estrita de Gestor (exclui filmmakers)
   const nomeLower = profile?.nome?.toLowerCase() || ''
+  const isFilmmaker = isFilmmakerProfile(profile)
   const isGestor =
-    profile?.role === 'owner' ||
-    profile?.role === 'gestor_equipe' ||
-    profile?.role === 'gestor_financeiro' ||
-    nomeLower.includes('mola') ||
-    nomeLower.includes('rennan') ||
-    nomeLower.includes('renan')
+    !isFilmmaker && (
+      profile?.role === 'owner' ||
+      profile?.role === 'gestor_equipe' ||
+      profile?.role === 'gestor_financeiro' ||
+      nomeLower.includes('mola') ||
+      nomeLower.includes('rennan') ||
+      nomeLower.includes('renan')
+    )
 
   const isMola = isMolaProfile(profile)
 

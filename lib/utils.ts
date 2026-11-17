@@ -32,3 +32,10 @@ export function isMolaProfile(profile?: { id?: string; user_id?: string; nome?: 
   if (profile.user_id === 'df1261ea-2fa1-409a-8089-65c7e901e532') return true
   return profile.nome?.toLowerCase().includes('mola') ?? false
 }
+
+export function isFilmmakerProfile(profile?: { cargo?: string | null; role?: string | null } | null): boolean {
+  if (!profile) return false
+  const cargoLower = profile.cargo?.toLowerCase() || ''
+  return cargoLower.includes('filmmaker') || cargoLower.includes('filmaker') || profile.role === 'filmmaker'
+}
+

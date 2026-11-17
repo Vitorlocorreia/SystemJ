@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
 import type { StatusCliente } from '@/types'
-import { isMolaProfile } from '@/lib/utils'
+import { isMolaProfile, isFilmmakerProfile } from '@/lib/utils'
 
 const statusLabel: Record<StatusCliente, string> = {
   prospecto: 'Prospecto',
@@ -28,13 +28,14 @@ export default async function ClientesPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role, nome')
+    .select('id, role, nome, cargo')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
+  const isFilmmaker = isFilmmakerProfile(profile)
+  const isGestor = !isFilmmaker && (profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan')))
   if (profile?.role === 'design_grafico') redirect('/design')
-  if (!isGestor) redirect('/semana')
+  if (!isGestor || isFilmmaker) redirect('/semana')
 
   const { status, q } = await searchParams
 

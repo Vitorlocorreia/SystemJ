@@ -47,10 +47,15 @@ export default function GlobalKanbanBoard({
   // Singleton Supabase client
   const supabaseRef = useRef(createClient())
 
+  const listMembros = useMemo(() => {
+    return todosMembros && todosMembros.length > 0 ? todosMembros : membros
+  }, [todosMembros, membros])
+
   const normalizarTarefas = useCallback((raw: any[]): ExtendedTarefa[] => {
+    const equipe = todosMembros && todosMembros.length > 0 ? todosMembros : membros
     return raw.map(t => {
       const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
-      const resps = membros.filter(m => ids.includes(m.id))
+      const resps = equipe.filter(m => ids.includes(m.id))
       return {
         ...t,
         responsavel_ids: ids,
@@ -58,7 +63,7 @@ export default function GlobalKanbanBoard({
         responsavel: resps[0] || null
       }
     })
-  }, [membros])
+  }, [membros, todosMembros])
 
   const [tarefas, setTarefas] = useState<ExtendedTarefa[]>(() => normalizarTarefas(tarefasIniciais))
   const [searchTerm, setSearchTerm] = useState('')
@@ -154,7 +159,7 @@ export default function GlobalKanbanBoard({
         ? currentIds.filter(id => id !== membroId)
         : [...currentIds, membroId]
       
-      const resps = membros.filter(m => newIds.includes(m.id))
+      const resps = listMembros.filter(m => newIds.includes(m.id))
       return {
         ...prev,
         responsavel_ids: newIds,
@@ -162,7 +167,7 @@ export default function GlobalKanbanBoard({
         responsavel: resps[0] || null
       }
     })
-  }, [membros])
+  }, [listMembros])
 
   const toggleResponsavelCriacao = useCallback((membroId: string) => {
     setNewRespIds(prev =>
@@ -286,10 +291,10 @@ export default function GlobalKanbanBoard({
     
     const countInCol = tarefas.filter(t => t.status === newStatus).length
 
-    // Se nenhum responsável selecionado, auto-atribuir ao designer principal (ex: Jotinha)
+    // Se nenhum responsável selecionado, auto-atribuir ao primeiro membro disponível
     let respIds = newRespIds
-    if (respIds.length === 0 && membros.length > 0) {
-      respIds = [membros[0].id]
+    if (respIds.length === 0 && listMembros.length > 0) {
+      respIds = [listMembros[0].id]
     }
 
     const { data, error } = await supabase
@@ -315,7 +320,7 @@ export default function GlobalKanbanBoard({
     }
 
     // Load full responsavel profile locally
-    const resps = membros.filter(m => newRespIds.includes(m.id))
+    const resps = listMembros.filter(m => newRespIds.includes(m.id))
     const extendedNewTarefa: ExtendedTarefa = {
       ...data,
       responsavel_ids: newRespIds,
@@ -363,7 +368,7 @@ export default function GlobalKanbanBoard({
       return
     }
 
-    const resps = membros.filter(m => (editingTarefa.responsavel_ids || []).includes(m.id))
+    const resps = listMembros.filter(m => (editingTarefa.responsavel_ids || []).includes(m.id))
     const projObj = projetos.find(p => p.id === editingTarefa.projeto_id) || null
 
     setTarefas(prev =>
@@ -432,7 +437,7 @@ export default function GlobalKanbanBoard({
               className="input py-1.5 pr-8 text-sm bg-surface-elevated font-medium"
             >
               <option value="todos">Membro: Todos</option>
-              {membros.map(m => (
+              {listMembros.map(m => (
                 <option key={m.id} value={m.id}>{m.nome}</option>
               ))}
             </select>
@@ -656,7 +661,7 @@ export default function GlobalKanbanBoard({
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
                   <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
-                    {membros.map(m => {
+                    {listMembros.map(m => {
                       const isSelected = editingTarefa.responsavel_ids?.includes(m.id)
                       return (
                         <button
@@ -855,7 +860,7 @@ export default function GlobalKanbanBoard({
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-text-secondary uppercase">Membros Responsáveis</label>
                 <div className="grid grid-cols-2 gap-2 mt-1 max-h-40 overflow-y-auto p-1 border border-border rounded-lg bg-surface-elevated/50">
-                  {membros.map(m => {
+                  {listMembros.map(m => {
                     const isSelected = newRespIds.includes(m.id)
                     return (
                       <button

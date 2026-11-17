@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
+import { isFilmmakerProfile } from '@/lib/utils'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,11 +35,12 @@ export default function LoginPage() {
     // Buscar role do usuário para redirecionar corretamente
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, nome')
+      .select('role, nome, cargo')
       .eq('user_id', authData.user.id)
       .single()
 
-    const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
+    const isFilmmaker = isFilmmakerProfile(profile)
+    const isGestor = !isFilmmaker && (profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan')))
 
     router.push(isGestor ? '/dashboard' : '/semana')
     router.refresh()

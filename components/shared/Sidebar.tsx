@@ -22,7 +22,7 @@ import {
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/useProfile'
-import { cn, getInitials } from '@/lib/utils'
+import { cn, getInitials, isFilmmakerProfile } from '@/lib/utils'
 import GestorNotificationBell from './GestorNotificationBell'
 
 const navItems = [
@@ -45,13 +45,17 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const nomeLower = profile?.nome?.toLowerCase() || ''
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan'))
+  const isFilmmaker = isFilmmakerProfile(profile)
+  const isGestor = !isFilmmaker && (profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')))
   const isDesign = profile?.role === 'design_grafico'
   const isRennan = nomeLower.includes('rennan') || nomeLower.includes('renan')
 
   const visibleItems = navItems.filter(item => {
     if (isDesign) {
       return item.href === '/design' || item.href === '/projetos' || item.href === '/configuracoes'
+    }
+    if (isFilmmaker) {
+      return item.href === '/semana' || item.href === '/demandas' || item.href === '/projetos' || item.href === '/configuracoes'
     }
     if (isGestor) {
       return item.href !== '/design'

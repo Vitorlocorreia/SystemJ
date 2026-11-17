@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation'
 import GlobalKanbanBoard from '@/components/demandas/GlobalKanbanBoard'
 import { isMolaProfile } from '@/lib/utils'
 
+export const revalidate = 0
+
 export default async function DemandasPage() {
   const supabase = (await createClient()) as any
 
@@ -15,6 +17,10 @@ export default async function DemandasPage() {
     .select('*')
     .eq('user_id', user.id)
     .single()
+
+  if (profile?.role === 'design_grafico') {
+    redirect('/design')
+  }
 
   // Buscar todas as tarefas com projeto e cliente
   const { data: tarefas } = await supabase
@@ -32,31 +38,32 @@ export default async function DemandasPage() {
     .select('*')
     .order('nome')
 
-  // Filtrar apenas designers gráficos
-  const designers = (membros || []).filter((m: any) => m.role === 'design_grafico')
-  const designerIds = designers.map((d: any) => d.id)
-
-  // Filtrar tarefas pertencentes ao design (ou sem responsável atribuído)
-  const tarefasDesign = (tarefas || []).filter((t: any) => {
-    const ids = t.responsavel_ids || (t.responsavel_id ? [t.responsavel_id] : [])
-    if (ids.length === 0) return true // Traz demandas sem responsável para que o gestor possa atribuir a um designer
-    return ids.some(id => designerIds.includes(id))
-  })
+  const isMola = isMolaProfile(profile)
+  const tarefasFiltradas = isMola
+    ? (tarefas || []).filter((t: any) => {
+        const emp = t.projeto?.empresa || t.projeto?.cliente?.empresa || 'jota_esportivo'
+        return emp === 'jota_esportivo'
+      })
+    : (tarefas || [])
 
   // Buscar todos os projetos (operacionais) com cliente
   const { data: projetos } = await supabase
     .from('projetos')
-    .select('*, cliente:clientes(id, nome)')
+    .select('*, cliente:clientes(id, nome, empresa)')
     .order('nome')
+
+  const projetosFiltrados = isMola
+    ? (projetos || []).filter((p: any) => (p.empresa || p.cliente?.empresa || 'jota_esportivo') === 'jota_esportivo')
+    : (projetos || [])
 
   return (
     <div className="space-y-6 animate-fade-in">
       <GlobalKanbanBoard
-        tarefasIniciais={tarefasDesign}
-        membros={designers}
+        tarefasIniciais={tarefasFiltradas}
+        membros={membros || []}
         todosMembros={membros || []}
         currentUserProfile={profile}
-        projetos={projetos || []}
+        projetos={projetosFiltrados}
         currentUserId={user.id}
       />
     </div>

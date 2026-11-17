@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { formatCurrency, isMolaProfile } from '@/lib/utils'
+import { formatCurrency, isMolaProfile, isFilmmakerProfile } from '@/lib/utils'
 import {
   Users,
   FolderKanban,
@@ -25,15 +25,16 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, nome')
+    .select('role, nome, cargo')
     .eq('user_id', user.id)
     .single()
 
-  const isGestor = profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan'))
+  const isFilmmaker = isFilmmakerProfile(profile)
+  const isGestor = !isFilmmaker && (profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (profile?.nome?.toLowerCase()?.includes('mola') || profile?.nome?.toLowerCase()?.includes('rennan') || profile?.nome?.toLowerCase()?.includes('renan')))
   const isDesign = profile?.role === 'design_grafico'
   
   if (isDesign) redirect('/design')
-  if (!isGestor) redirect('/semana')
+  if (!isGestor || isFilmmaker) redirect('/semana')
 
 
   const isMola = isMolaProfile(profile)
