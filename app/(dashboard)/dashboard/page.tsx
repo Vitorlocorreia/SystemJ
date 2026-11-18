@@ -64,13 +64,13 @@ export default async function DashboardPage() {
       : supabase.from('projetos').select('*', { count: 'exact', head: true }).in('status', ['planejamento', 'em_andamento']),
     supabase.from('tarefas').select('*', { count: 'exact', head: true }).in('status', ['a_fazer', 'em_andamento']),
     isMola
-      ? supabase.from('lancamentos').select('tipo, valor, empresa').gte('data_lancamento', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]).or('empresa.eq.jota_esportivo,empresa.is.null')
+      ? Promise.resolve({ data: [] })
       : supabase.from('lancamentos').select('tipo, valor, empresa').gte('data_lancamento', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
     isMola
-      ? supabase.from('lancamentos').select('id, tipo, descricao, valor, status, data_vencimento, data_lancamento, empresa').eq('status', 'pendente').or('empresa.eq.jota_esportivo,empresa.is.null')
+      ? Promise.resolve({ data: [] })
       : supabase.from('lancamentos').select('id, tipo, descricao, valor, status, data_vencimento, data_lancamento, empresa').eq('status', 'pendente'),
     isMola
-      ? supabase.from('cobrancas').select('id, valor_total, valor_pago, status, data_vencimento, empresa, cliente:clientes(nome, empresa)').neq('status', 'pago').or('empresa.eq.jota_esportivo,empresa.is.null')
+      ? Promise.resolve({ data: [] })
       : supabase.from('cobrancas').select('id, valor_total, valor_pago, status, data_vencimento, empresa, cliente:clientes(nome, empresa)').neq('status', 'pago'),
   ])
 
@@ -138,13 +138,17 @@ export default async function DashboardPage() {
       icon: Clock,
       gold: false,
     },
-    {
-      label: 'Margem do Mês',
-      value: formatCurrency(margem),
-      sub: `R$ ${formatCurrency(receitas)} receitas`,
-      icon: margem >= 0 ? TrendingUp : TrendingDown,
-      gold: true,
-    },
+    ...(!isMola
+      ? [
+          {
+            label: 'Margem do Mês',
+            value: formatCurrency(margem),
+            sub: `R$ ${formatCurrency(receitas)} receitas`,
+            icon: margem >= 0 ? TrendingUp : TrendingDown,
+            gold: true,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -158,7 +162,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isMola ? 'xl:grid-cols-3' : 'xl:grid-cols-4'} gap-4`}>
         {kpis.map(({ label, value, sub, icon: Icon, gold }) => (
           <div
             key={label}
@@ -179,6 +183,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Financial summary */}
+      {!isMola && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card">
           <h2 className="font-display text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">
@@ -267,6 +272,7 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

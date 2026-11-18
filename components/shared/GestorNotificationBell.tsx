@@ -47,20 +47,19 @@ export default function GestorNotificationBell() {
   const [copiadoId, setCopiadoId] = useState<string | null>(null)
   const popoverRef = useRef<HTMLDivElement>(null)
 
-  // 1. Verificação Estrita de Gestor (exclui filmmakers)
+  // 1. Verificação Estrita de Gestor (exclui filmmakers e Mola sem acesso financeiro)
   const nomeLower = profile?.nome?.toLowerCase() || ''
   const isFilmmaker = isFilmmakerProfile(profile)
+  const isMola = isMolaProfile(profile)
   const isGestor =
-    !isFilmmaker && (
+    !isFilmmaker &&
+    !isMola && (
       profile?.role === 'owner' ||
       profile?.role === 'gestor_equipe' ||
       profile?.role === 'gestor_financeiro' ||
-      nomeLower.includes('mola') ||
       nomeLower.includes('rennan') ||
       nomeLower.includes('renan')
     )
-
-  const isMola = isMolaProfile(profile)
 
   // Fechar popover ao clicar fora ou apertar Esc
   useEffect(() => {

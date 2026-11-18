@@ -23,6 +23,7 @@ export default async function FinanceiroPage() {
   if (!isGestor || isFilmmaker) redirect('/semana')
 
   const isMola = isMolaProfile(profile)
+  if (isMola) redirect('/dashboard')
 
   // Buscar todos os dados financeiros em paralelo
   let [

@@ -114,13 +114,15 @@ export default async function ClientesPage({
               <th className="text-left px-5 py-3.5 text-text-secondary font-medium text-xs uppercase tracking-wider">Segmento</th>
               <th className="text-left px-5 py-3.5 text-text-secondary font-medium text-xs uppercase tracking-wider">Contato</th>
               <th className="text-left px-5 py-3.5 text-text-secondary font-medium text-xs uppercase tracking-wider">Status</th>
-              <th className="text-right px-5 py-3.5 text-text-secondary font-medium text-xs uppercase tracking-wider">Contrato</th>
+              {!isMola && (
+                <th className="text-right px-5 py-3.5 text-text-secondary font-medium text-xs uppercase tracking-wider">Contrato</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {clientes?.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-text-secondary text-sm">
+                <td colSpan={isMola ? 4 : 5} className="px-5 py-12 text-center text-text-secondary text-sm">
                   Nenhum cliente encontrado.
                 </td>
               </tr>
@@ -144,11 +146,13 @@ export default async function ClientesPage({
                     {statusLabel[cliente.status as StatusCliente]}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-right font-display tabular-nums text-text-primary">
-                  {cliente.valor_contrato
-                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.valor_contrato)
-                    : '—'}
-                </td>
+                {!isMola && (
+                  <td className="px-5 py-4 text-right font-display tabular-nums text-text-primary">
+                    {cliente.valor_contrato
+                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.valor_contrato)
+                      : '—'}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -181,11 +185,13 @@ export default async function ClientesPage({
             </div>
             <div className="flex items-center justify-between mt-2.5">
               <span className="text-xs text-text-secondary">{cliente.email ?? cliente.telefone ?? '—'}</span>
-              <span className="font-display text-xs tabular-nums text-text-primary">
-                {cliente.valor_contrato
-                  ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.valor_contrato)
-                  : ''}
-              </span>
+              {!isMola && (
+                <span className="font-display text-xs tabular-nums text-text-primary">
+                  {cliente.valor_contrato
+                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cliente.valor_contrato)
+                    : ''}
+                </span>
+              )}
             </div>
           </Link>
         ))}

@@ -33,7 +33,7 @@ export default function ImportarPlanilhaPage() {
       if (profile.role === 'design_grafico') {
         router.push('/design')
       } else if (isMolaProfile(profile)) {
-        router.push('/financeiro')
+        router.push('/dashboard')
       } else if (!isGestor) {
         router.push('/semana')
       }

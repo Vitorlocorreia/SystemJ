@@ -22,7 +22,7 @@ import {
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/lib/hooks/useProfile'
-import { cn, getInitials, isFilmmakerProfile } from '@/lib/utils'
+import { cn, getInitials, isFilmmakerProfile, isMolaProfile } from '@/lib/utils'
 import GestorNotificationBell from './GestorNotificationBell'
 
 const navItems = [
@@ -46,6 +46,7 @@ export default function Sidebar() {
 
   const nomeLower = profile?.nome?.toLowerCase() || ''
   const isFilmmaker = isFilmmakerProfile(profile)
+  const isMola = isMolaProfile(profile)
   const isGestor = !isFilmmaker && (profile?.role === 'owner' || profile?.role === 'gestor_equipe' || profile?.role === 'gestor_financeiro' || (nomeLower.includes('mola') || nomeLower.includes('rennan') || nomeLower.includes('renan')))
   const isDesign = profile?.role === 'design_grafico'
   const isRennan = nomeLower.includes('rennan') || nomeLower.includes('renan')
@@ -56,6 +57,9 @@ export default function Sidebar() {
     }
     if (isFilmmaker) {
       return item.href === '/semana' || item.href === '/demandas' || item.href === '/projetos' || item.href === '/configuracoes'
+    }
+    if (isMola && item.href === '/financeiro') {
+      return false
     }
     if (isGestor) {
       return item.href !== '/design'

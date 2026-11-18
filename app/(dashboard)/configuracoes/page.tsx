@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ConfiguracoesForm from './ConfiguracoesForm'
+import { isMolaProfile } from '@/lib/utils'
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient()
@@ -16,7 +17,8 @@ export default async function ConfiguracoesPage() {
 
   if (!profile) redirect('/login')
 
-  const isGestor = profile.role === 'owner' || profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro' || (profile.nome?.toLowerCase()?.includes('mola') || profile.nome?.toLowerCase()?.includes('rennan') || profile.nome?.toLowerCase()?.includes('renan'))
+  const isMola = isMolaProfile(profile)
+  const isGestor = !isMola && (profile.role === 'owner' || profile.role === 'gestor_equipe' || profile.role === 'gestor_financeiro' || (profile.nome?.toLowerCase()?.includes('rennan') || profile.nome?.toLowerCase()?.includes('renan')))
   let categorias = []
 
   if (isGestor) {

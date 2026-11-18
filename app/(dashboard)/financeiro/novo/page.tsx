@@ -18,9 +18,9 @@ export default async function NovoLancamentoPage() {
   if (profile?.role === 'design_grafico') redirect('/design')
   if (!isGestor) redirect('/semana')
 
-  // Mola é apenas visualizador no financeiro e não pode cadastrar lançamentos
+  // Mola não tem acesso ao módulo financeiro
   if (isMolaProfile(profile)) {
-    redirect('/financeiro')
+    redirect('/dashboard')
   }
 
   // Fetch financial categories, clients, and projects
